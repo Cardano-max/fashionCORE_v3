@@ -1,0 +1,17 @@
+{
+    "SVD": [
+        "https://charlieamalet-svd-xt-1-1.hf.space"
+    ],
+    "TripoSR": [
+        "https://stabilityai-triposr.hf.space"
+    ],
+    "Omost": [
+        "https://lllyasviel-omost.hf.space"
+    ],
+    "PixArt": [
+        "https://pixart-alpha-pixart-sigma.hf.space"
+    ],
+    "ComfyUI (CPU)": [
+        "https://wrdias-comfyui-advanced-video2video.hf.space"
+    ]
+}

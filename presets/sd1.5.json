@@ -1,0 +1,48 @@
+{
+    "default_model": "FluentlyXL-v4.safetensors",
+    "default_refiner": "Reliberate_v3.safetensors",
+    "default_refiner_switch": 0.1,
+    "default_loras": [
+        [
+            "None",
+            1.0
+        ],
+        [
+            "None",
+            1.0
+        ],
+        [
+            "None",
+            1.0
+        ],
+        [
+            "None",
+            1.0
+        ],
+        [
+            "None",
+            1.0
+        ]
+    ],
+    "default_cfg_scale": 5,
+    "default_sample_sharpness": 2.0,
+    "default_sampler": "euler",
+    "default_scheduler": "sgm_uniform",
+    "default_performance": "Speed",
+    "default_prompt": "",
+    "default_prompt_negative": "",
+    "default_styles": [
+        "Fooocus V2",
+        "Fooocus Enhance",
+        "Fooocus Sharp"
+    ],
+    "default_aspect_ratio": "1024*1024",
+    "default_overwrite_step": 25,
+    "checkpoint_downloads": {
+        "FluentlyXL-v4.safetensors": "https://huggingface.co/fluently/Fluently-XL-v4/resolve/main/FluentlyXL-v4.safetensors",
+        "Reliberate_v3.safetensors": "https://huggingface.co/XpucT/Reliberate/resolve/main/Reliberate_v3.safetensors"
+    },
+    "embeddings_downloads": {},
+    "lora_downloads": {},
+    "previous_default_models": []
+}

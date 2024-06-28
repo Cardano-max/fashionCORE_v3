@@ -1,0 +1,28 @@
+{
+    "SuperPrompt": [
+        "https://cocktailpeanut-superprompt-v1.hf.space"
+    ],
+    "GFPGAN": [
+        "https://xintao-gfpgan.hf.space"
+    ],
+    "Old Photo Restoration": [
+        "https://modelscope-old-photo-restoration.hf.space"
+    ],
+    "ControlNet": [
+        "https://hysts-controlnet-v1-1.hf.space"
+    ],
+    "FaceSwap": [
+        "https://coxapi-faceswap.hf.space"
+    ],
+    "IC-Light": [
+        "https://lllyasviel-ic-light.hf.space"
+    ],
+    "OOTDiffusion": [
+        "https://levihsu-ootdiffusion.hf.space"
+    ],
+    "DeepDanbooru": [
+        "https://hysts-deepdanbooru.hf.space"
+    ]
+
+
+}

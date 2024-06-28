@@ -1,0 +1,49 @@
+{
+    "default_model": "FluentlyXL-v4.safetensors",
+    "default_refiner": "None",
+    "default_refiner_switch": 0.5,
+    "default_loras": [
+        [
+            "None",
+            1.0
+        ],
+        [
+            "Hyper-SDXL-4steps-lora.safetensors",
+            1.0
+        ],
+        [
+            "None",
+            1.0
+        ],
+        [
+            "None",
+            1.0
+        ],
+        [
+            "None",
+            1.0
+        ]
+    ],
+    "default_cfg_scale": 1.7,
+    "default_sample_sharpness": 2.0,
+    "default_sampler": "euler",
+    "default_scheduler": "sgm_uniform",
+    "default_performance": "Speed",
+    "default_prompt": "",
+    "default_prompt_negative": "",
+    "default_styles": [
+        "Fooocus V2",
+        "Fooocus Enhance",
+        "Fooocus Sharp"
+    ],
+    "default_aspect_ratio": "1024*1024",
+    "default_overwrite_step": 4,
+    "checkpoint_downloads": {
+        "FluentlyXL-v4.safetensors": "https://huggingface.co/fluently/Fluently-XL-v4/resolve/main/FluentlyXL-v4.safetensors"
+    },
+    "embeddings_downloads": {},
+    "lora_downloads": {
+        "Hyper-SDXL-4steps-lora.safetensors": "https://huggingface.co/ByteDance/Hyper-SD/resolve/main/Hyper-SDXL-4steps-lora.safetensors"
+    },
+    "previous_default_models": []
+}
