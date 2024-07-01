@@ -1,4 +1,5 @@
 import gradio as gr
+from modules.util import HWC3, resize_image
 import random
 import os
 import json
@@ -18,7 +19,7 @@ from modules.load_online import load_demos_names, load_tools_names, load_demos_u
 import args_manager
 import copy
 import launch
-from modules.util import HWC3, resize_image
+
 
 from modules.sdxl_styles import legal_style_names
 from modules.private_logger import get_current_html_path
@@ -145,11 +146,6 @@ def virtual_tryon_clicked(clothing_img, person_img):
     result = task.yields[0]
     return result
 
-generate_tryon_button.click(
-    virtual_tryon_clicked,
-    inputs=[clothing_image, person_image],
-    outputs=[result_image]
-)
 
 def generate_clicked(task):
     import ldm_patched.modules.model_management as model_management
@@ -944,6 +940,13 @@ with shared.gradio_root:
                   outputs=[generate_button, stop_button, skip_button, state_is_generating]) \
             .then(fn=update_history_link, outputs=history_link) \
             .then(fn=lambda: None, _js='playNotification').then(fn=lambda: None, _js='refresh_grid_delayed')
+
+         # Add this at the end of the Gradio blocks
+        generate_tryon_button.click(
+            virtual_tryon_clicked,
+            inputs=[clothing_image, person_image],
+            outputs=[result_image]
+        )
 
         def trigger_describe(mode, img):
             if mode == flags.desc_type_photo:
