@@ -1,5 +1,4 @@
 import gradio as gr
-from modules.util import HWC3, resize_image
 import random
 import os
 import json
@@ -19,12 +18,12 @@ from modules.load_online import load_demos_names, load_tools_names, load_demos_u
 import args_manager
 import copy
 import launch
-import cv2
-from PIL import Image
-import io
-import numpy as np
-
-
+from modules.util import HWC3, resize_image
+import time
+from modules.async_worker import AsyncTask
+from modules.flags import Performance
+import modules.config
+import modules.flags as flags
 
 from modules.sdxl_styles import legal_style_names
 from modules.private_logger import get_current_html_path
@@ -43,126 +42,80 @@ def get_photopea_url_params():
     return "#%7B%22resources%22:%5B%22data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIAAQMAAADOtka5AAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAANQTFRF////p8QbyAAAADZJREFUeJztwQEBAAAAgiD/r25IQAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfBuCAAAB0niJ8AAAAABJRU5ErkJggg==%22%5D%7D"
 
 
+def generate_virtual_tryon(clothes_image, person_image):
+    # Remove background from clothes image
+    clothes_no_bg = rembg_run(clothes_image)
+
+    # Generate mask for person image
+    person_mask = generate_mask(
+        person_image, 'sam', None, 'Clothes', 'sam_vit_b_01ec64', False, 0.3, 0.25
+    )
+
+    # Set up Image Prompt settings
+    ip_images = [clothes_no_bg]
+    ip_stops = [0.86]
+    ip_weights = [0.97]
+    ip_types = [flags.cn_ip]
+
+    # Set up Inpaint settings
+    inpaint_input_image = {'image': person_image, 'mask': person_mask}
+
+    # Configure other settings
+    performance_selection = Performance.QUALITY.value
+    preset_selection = 'initial'
+    aspect_ratios_selection = '1152×896'
+    style_selections = ["Fooocus V2", "Fooocus Enhance", "Fooocus Sharp"]
+
+    # Set up control settings
+    mixing_image_prompt_and_inpaint = True
+
+    # Prepare the task for generation
+    task = AsyncTask([
+        "",  # prompt
+        "",  # negative_prompt
+        False,  # translate_prompts
+        style_selections,
+        performance_selection,
+        aspect_ratios_selection,
+        1,  # image_number
+        modules.config.default_output_format,  # output_format
+        0,  # image_seed
+        modules.config.default_sample_sharpness,  # sharpness
+        modules.config.default_cfg_scale,  # guidance_scale
+        modules.config.default_base_model_name,  # base_model_name
+        modules.config.default_refiner_model_name,  # refiner_model_name
+        modules.config.default_refiner_switch,  # refiner_switch
+        modules.config.default_loras,  # loras
+        True,  # input_image_checkbox
+        "ip",  # current_tab
+        "Disabled",  # uov_method
+        None,  # uov_input_image
+        [],  # outpaint_selections
+        inpaint_input_image,
+        "",  # inpaint_additional_prompt
+        None,  # inpaint_mask_image_upload
+        False,  # disable_preview
+        True,  # mixing_image_prompt_and_inpaint
+        # Add other necessary parameters
+    ])
+
+    # Generate the image
+    generate_clicked(task)
+
+    # Wait for the task to complete
+    while not task.processing:
+        time.sleep(0.1)
+    while task.processing:
+        time.sleep(0.1)
+
+    # Return the generated image
+    return task.results
+
 def get_task(*args):
     args = list(args)
     args.pop(0)
 
     return worker.AsyncTask(args=args)
-
-def virtual_tryon_clicked(clothing_img, person_img):
-    clothing_img = HWC3(clothing_img)
-    person_img = HWC3(person_img)
-
-    # Convert numpy array to PIL Image for rembg
-    clothing_pil = Image.fromarray(cv2.cvtColor(clothing_img, cv2.COLOR_BGR2RGB))
-    
-    # Save PIL Image to bytes
-    img_byte_arr = io.BytesIO()
-    clothing_pil.save(img_byte_arr, format='PNG')
-    img_byte_arr = img_byte_arr.getvalue()
-
-    # Remove background from clothing image
-    clothing_no_bg = rembg_run(img_byte_arr)
-    
-    # Convert back to numpy array
-    clothing_no_bg = np.array(clothing_no_bg)
-
-    # Generate mask for person image
-    inpaint_worker.current_task = inpaint_worker.InpaintWorker(
-        image=person_img,
-        mask=None,
-        use_fill=True,
-        k=1.0
-    )
-    inpaint_worker.current_task.load_sam_model('sam_vit_b_01ec64')
-    mask = inpaint_worker.current_task.generate_mask("Clothes", box_threshold=0.3, text_threshold=0.25)
-
-    # Resize images to match aspect ratio
-    width, height = 1152, 896
-    clothing_no_bg = resize_image(clothing_no_bg, width=width, height=height)
-    person_img = resize_image(person_img, width=width, height=height)
-    mask = resize_image(HWC3(mask), width=width, height=height)[:,:,0]
-
-
-    # Prepare inputs for the pipeline
-    task = worker.AsyncTask(args=[
-        "person wearing new clothes, realistic, high quality",  # prompt
-        "distorted, low quality, unrealistic",  # negative prompt
-        False,  # translate_prompts
-        ["Fooocus V2", "Fooocus Enhance", "Fooocus Sharp"],  # style_selections
-        flags.Performance.QUALITY,  # performance_selection
-        f"{width}*{height}",  # aspect_ratios_selection
-        1,  # image_number
-        "png",  # output_format
-        random.randint(0, 2**32 - 1),  # image_seed
-        2.0,  # sharpness
-        7.0,  # guidance_scale
-        "FluentlyXL-v4.safetensors",  # base_model
-        "None",  # refiner_model
-        0.5,  # refiner_switch
-        ["None", 1.0] * flags.lora_count,  # loras
-        True,  # input_image_checkbox
-        "ip",  # current_tab
-        "disabled",  # uov_method
-        None,  # uov_input_image
-        [],  # outpaint_selections
-        {"image": person_img, "mask": mask},  # inpaint_input_image
-        "",  # inpaint_additional_prompt
-        None,  # inpaint_mask_image_upload
-        False,  # disable_preview
-        True,  # disable_intermediate_results
-        False,  # black_out_nsfw
-        1.5,  # adm_scaler_positive
-        0.8,  # adm_scaler_negative
-        0.3,  # adm_scaler_end
-        7.0,  # adaptive_cfg
-        "dpmpp_2m_sde_gpu",  # sampler_name
-        "karras",  # scheduler_name
-        -1,  # overwrite_step
-        -1,  # overwrite_switch
-        -1,  # overwrite_width
-        -1,  # overwrite_height
-        -1,  # overwrite_vary_strength
-        -1,  # overwrite_upscale_strength
-        False,  # mixing_image_prompt_and_vary_upscale
-        True,  # mixing_image_prompt_and_inpaint
-        False,  # debugging_cn_preprocessor
-        False,  # skipping_cn_preprocessor
-        64,  # canny_low_threshold
-        128,  # canny_high_threshold
-        "joint",  # refiner_swap_method
-        0.25,  # controlnet_softness
-        False,  # freeu_enabled
-        1.01,  # freeu_b1
-        1.02,  # freeu_b2
-        0.99,  # freeu_s1
-        0.95,  # freeu_s2
-        False,  # debugging_inpaint_preprocessor
-        False,  # inpaint_disable_initial_latent
-        "v2.6",  # inpaint_engine
-        1.0,  # inpaint_strength
-        0.618,  # inpaint_respective_field
-        False,  # inpaint_mask_upload_checkbox
-        False,  # invert_mask_checkbox
-        0,  # inpaint_erode_or_dilate
-        flags.MetadataScheme.FOOOCUS,  # metadata_scheme
-        clothing_no_bg,  # cn_img1
-        0.86,  # cn_stop1
-        0.97,  # cn_weight1
-        flags.cn_ip,  # cn_type1
-        None, None, None, flags.cn_ip,  # Other ControlNet inputs (not used)
-        None, None, None, flags.cn_ip,
-        None, None, None, flags.cn_ip,
-    ])
-
-    worker.async_tasks.append(task)
-
-    while len(task.yields) == 0:
-        time.sleep(0.01)
-    
-    result = task.yields[0]
-    return result
-
 
 def generate_clicked(task):
     import ldm_patched.modules.model_management as model_management
@@ -250,14 +203,18 @@ with shared.gradio_root:
                                      elem_id='final_gallery',
                                      value=["assets/favicon.png"],
                                      preview=True)
-            with gr.Tab("Virtual Try-On"):
-                with gr.Row():
-                    with gr.Column():
-                        clothing_image = grh.Image(label="Clothing Image", type="numpy")
-                        person_image = grh.Image(label="Person Image", type="numpy")
-                    with gr.Column():
-                        result_image = grh.Image(label="Result", type="numpy")
-                generate_tryon_button = gr.Button(label="Generate Try-On", variant="primary")
+            with gr.Column(scale=2):
+                with gr.Tab("Virtual Try-On"):
+                    clothes_image_input = grh.Image(label='Clothes Image', source='upload', type='numpy')
+                    person_image_input = grh.Image(label='Person Image', source='upload', type='numpy')
+                    virtual_tryon_button = gr.Button(label="Generate Virtual Try-On", variant="primary")
+                    virtual_tryon_gallery = gr.Gallery(label='Results', show_label=False, object_fit='contain', height=768)
+
+                virtual_tryon_button.click(
+                    generate_virtual_tryon,
+                    inputs=[clothes_image_input, person_image_input],
+                    outputs=[virtual_tryon_gallery]
+                )
             with gr.Tab("rembg"):
                 with gr.Column(scale=1):
                     rembg_input = grh.Image(label='Drag above image to here', source='upload', type='filepath', scale=20)
@@ -957,13 +914,6 @@ with shared.gradio_root:
                   outputs=[generate_button, stop_button, skip_button, state_is_generating]) \
             .then(fn=update_history_link, outputs=history_link) \
             .then(fn=lambda: None, _js='playNotification').then(fn=lambda: None, _js='refresh_grid_delayed')
-
-         # Add this at the end of the Gradio blocks
-        generate_tryon_button.click(
-            virtual_tryon_clicked,
-            inputs=[clothing_image, person_image],
-            outputs=[result_image]
-        )
 
         def trigger_describe(mode, img):
             if mode == flags.desc_type_photo:
