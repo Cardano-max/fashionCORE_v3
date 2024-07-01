@@ -18,7 +18,7 @@ import args_manager
 import copy
 import launch
 
-# from modules.sdxl_styles import legal_style_names
+from modules.sdxl_styles import legal_style_names
 from modules.private_logger import get_current_html_path
 from modules.ui_gradio_extensions import reload_javascript
 from modules.auth import auth_enabled, check_auth
