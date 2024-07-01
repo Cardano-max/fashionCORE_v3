@@ -27,12 +27,12 @@ from modules.ui_gradio_extensions import reload_javascript
 from modules.auth import auth_enabled, check_auth
 from modules.util import is_json
 
+import modules.async_worker as worker
 import modules.rembg as rembg
 from extras.inpaint_mask import generate_mask_from_image
 import modules.flags as flags
 from modules.flags import Performance
 import modules.config
-import modules.worker as worker
 import numpy as np
 from PIL import Image
 
@@ -47,25 +47,10 @@ def get_photopea_url_params():
     return "#%7B%22resources%22:%5B%22data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIAAQMAAADOtka5AAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAANQTFRF////p8QbyAAAADZJREFUeJztwQEBAAAAgiD/r25IQAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfBuCAAAB0niJ8AAAAABJRU5ErkJggg==%22%5D%7D"
 
 
-import modules.rembg as rembg
-from extras.inpaint_mask import generate_mask_from_image
-import modules.flags as flags
-from modules.flags import Performance
-import modules.config
-import modules.worker as worker
-import numpy as np
-from PIL import Image
 
 def virtual_tryon(clothing_image, person_image):
-    # Convert inputs to numpy arrays if they're not already
-    if isinstance(clothing_image, str):
-        clothing_image = np.array(Image.open(clothing_image))
-    if isinstance(person_image, str):
-        person_image = np.array(Image.open(person_image))
-
     # Step 1: Remove background from clothing image
-    clothing_without_bg = rembg.rembg_run(clothing_image)
-    clothing_without_bg = np.array(clothing_without_bg)
+    clothing_without_bg = rembg_run(clothing_image)
 
     # Step 2: Generate mask for person image
     mask_extras = {
@@ -122,10 +107,6 @@ def virtual_tryon(clothing_image, person_image):
       + [ip_images[0], ip_stops[0], ip_weights[0], ip_types[0]])
 
     # Step 7: Generate image
-    results = process_generate_clicked(task)
-    return results
-
-def process_generate_clicked(task):
     worker.async_tasks.append(task)
     
     results = []
@@ -136,6 +117,7 @@ def process_generate_clicked(task):
             break
     
     return results
+
 
     
 def get_task(currentTask, *args):
