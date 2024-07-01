@@ -19,6 +19,11 @@ from modules.load_online import load_demos_names, load_tools_names, load_demos_u
 import args_manager
 import copy
 import launch
+import cv2
+from PIL import Image
+import io
+import numpy as np
+
 
 
 from modules.sdxl_styles import legal_style_names
@@ -48,8 +53,19 @@ def virtual_tryon_clicked(clothing_img, person_img):
     clothing_img = HWC3(clothing_img)
     person_img = HWC3(person_img)
 
+    # Convert numpy array to PIL Image for rembg
+    clothing_pil = Image.fromarray(cv2.cvtColor(clothing_img, cv2.COLOR_BGR2RGB))
+    
+    # Save PIL Image to bytes
+    img_byte_arr = io.BytesIO()
+    clothing_pil.save(img_byte_arr, format='PNG')
+    img_byte_arr = img_byte_arr.getvalue()
+
     # Remove background from clothing image
-    clothing_no_bg = rembg_run(clothing_img)
+    clothing_no_bg = rembg_run(img_byte_arr)
+    
+    # Convert back to numpy array
+    clothing_no_bg = np.array(clothing_no_bg)
 
     # Generate mask for person image
     inpaint_worker.current_task = inpaint_worker.InpaintWorker(
@@ -66,6 +82,7 @@ def virtual_tryon_clicked(clothing_img, person_img):
     clothing_no_bg = resize_image(clothing_no_bg, width=width, height=height)
     person_img = resize_image(person_img, width=width, height=height)
     mask = resize_image(HWC3(mask), width=width, height=height)[:,:,0]
+
 
     # Prepare inputs for the pipeline
     task = worker.AsyncTask(args=[
