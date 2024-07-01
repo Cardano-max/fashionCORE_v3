@@ -21,11 +21,13 @@ import launch
 import modules.rembg as rembg
 from extras.inpaint_mask import generate_mask_from_image
 
+
 from modules.sdxl_styles import legal_style_names
 from modules.private_logger import get_current_html_path
 from modules.ui_gradio_extensions import reload_javascript
 from modules.auth import auth_enabled, check_auth
 from modules.util import is_json
+from extras.inpaint_mask import generate_mask_from_image
 
 import modules.async_worker as worker
 import modules.rembg as rembg
@@ -62,10 +64,11 @@ def virtual_tryon(clothing_image, person_image):
     person_mask = generate_mask_from_image(person_image, 'sam', mask_extras)
 
     # Step 3: Set up Image Prompt
+    default_end, default_weight = flags.default_parameters[flags.default_ip]
     ip_images = [clothing_without_bg]
-    ip_stops = [0.86]
-    ip_weights = [0.97]
-    ip_types = [flags.cn_ip]
+    ip_stops = [default_end]
+    ip_weights = [default_weight]
+    ip_types = [flags.default_ip]
 
     # Step 4: Set up Inpaint
     inpaint_input_image = person_image
@@ -74,14 +77,14 @@ def virtual_tryon(clothing_image, person_image):
     # Step 5: Set other parameters
     prompt = "A person wearing the clothing item"
     negative_prompt = "unrealistic, saturated, high contrast, big nose, painting, drawing, sketch, cartoon, anime, manga, render, CG, 3d, watermark, signature, label"
-    performance = Performance.QUALITY
+    performance = flags.Performance.QUALITY
     aspect_ratios = "1152×896"
     sampler = modules.config.default_sampler
     scheduler = modules.config.default_scheduler
     styles = ["Fooocus V2", "Fooocus Enhance", "Fooocus Sharp"]
 
     # Step 6: Prepare task
-    loras = [['None', 1.0] for _ in range(modules.flags.lora_count)]
+    loras = [['None', 1.0] for _ in range(flags.lora_count)]
     task = worker.AsyncTask(args=[
         False,  # generate_image_grid
         prompt, negative_prompt, False,  # translate_prompts
@@ -120,6 +123,7 @@ def virtual_tryon(clothing_image, person_image):
             break
     
     return results
+
     
 def get_task(currentTask, *args):
     return worker.AsyncTask(args=list(args))
