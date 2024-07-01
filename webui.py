@@ -126,7 +126,7 @@ def virtual_tryon_pipeline(clothes_image, person_image):
             modules.config.default_inpaint_engine_version,  # inpaint_engine
             1.0,  # inpaint_strength
             0.618,  # inpaint_respective_field
-            True,  # inpaint_mask_upload_checkbox
+            False,  # inpaint_mask_upload_checkbox
             False,  # invert_mask_checkbox
             0,  # inpaint_erode_or_dilate
         ])
@@ -180,4 +180,4 @@ with gr.Blocks() as virtual_tryon_interface:
     )
 
 # Launch the interface
-virtual_tryon_interface.launch(share=True, server_name="0.0.0.0", server_port=7860)
+virtual_tryon_interface.launch(share=True)
