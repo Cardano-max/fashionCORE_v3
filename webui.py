@@ -32,7 +32,7 @@ def virtual_tryon_pipeline(clothes_image, person_image):
     
     default_stop, default_weight = flags.default_parameters[flags.cn_ip]
     
-    task = AsyncTask([
+    args = [
         True,  # generate_image_grid
         "",  # prompt
         "",  # negative_prompt
@@ -48,7 +48,13 @@ def virtual_tryon_pipeline(clothes_image, person_image):
         modules.config.default_base_model_name,  # base_model_name
         modules.config.default_refiner_model_name,  # refiner_model_name
         modules.config.default_refiner_switch,  # refiner_switch
-        *[item for sublist in modules.config.default_loras for item in sublist],  # loras
+    ]
+
+    # Add LoRA arguments
+    for lora in modules.config.default_loras:
+        args.extend(lora)
+
+    args.extend([
         True,  # input_image_checkbox
         "ip",  # current_tab
         flags.disabled,  # uov_method
@@ -93,13 +99,25 @@ def virtual_tryon_pipeline(clothes_image, person_image):
         False,  # inpaint_mask_upload_checkbox
         False,  # invert_mask_checkbox
         0,  # inpaint_erode_or_dilate
-        modules.config.default_save_metadata_to_images,  # save_metadata_to_images
-        modules.config.default_metadata_scheme,  # metadata_scheme
-        clothes_no_bg,  # First image prompt (clothes without background)
-        default_stop,  # Stop at for clothes image
-        default_weight,  # Weight for clothes image
-        flags.cn_ip,  # Type for clothes image
     ])
+
+    if not args_manager.args.disable_metadata:
+        args.extend([
+            modules.config.default_save_metadata_to_images,  # save_metadata_to_images
+            modules.config.default_metadata_scheme,  # metadata_scheme
+        ])
+
+    # Add ControlNet tasks
+    for _ in range(flags.controlnet_image_count):
+        args.extend([
+            clothes_no_bg,  # cn_img (First image prompt: clothes without background)
+            default_stop,  # cn_stop
+            default_weight,  # cn_weight
+            flags.cn_ip,  # cn_type
+        ])
+
+    print(f"Number of arguments: {len(args)}")
+    task = AsyncTask(args)
 
     # Step 4: Add the task to the async_tasks list
     from modules.async_worker import async_tasks
