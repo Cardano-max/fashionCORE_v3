@@ -19,17 +19,72 @@ import args_manager
 import copy
 import launch
 from modules.util import HWC3, resize_image
-import time
-from modules.async_worker import AsyncTask
-from modules.flags import Performance
-import modules.config
-import modules.flags as flags
 
 from modules.sdxl_styles import legal_style_names
 from modules.private_logger import get_current_html_path
 from modules.ui_gradio_extensions import reload_javascript
 from modules.auth import auth_enabled, check_auth
 from modules.util import is_json
+
+import time
+from modules.async_worker import AsyncTask
+from modules.flags import Performance
+import modules.config
+import modules.flags as flags
+
+
+def generate_virtual_tryon(clothes_image, person_image):
+    try:
+        # Step 1: Remove background from clothes image
+        clothes_no_bg = rembg_run(clothes_image)
+
+        # Step 2: Set up Image Prompt
+        ip_images[0].update(value=clothes_no_bg)
+        ip_stops[0].update(value=0.86)
+        ip_weights[0].update(value=0.97)
+        ip_types[0].update(value=flags.cn_ip)
+        ip_advanced.update(value=True)
+
+        # Step 3: Generate mask for person image
+        inpaint_input_image.update(value={'image': person_image, 'mask': None})
+        inpaint_mask_image.update(value=None)
+        inpaint_mask_model.update(value='sam')
+        inpaint_mask_sam_prompt_text.update(value='Clothes')
+        inpaint_mask_sam_model.update(value='sam_vit_b_01ec64')
+        inpaint_mask_sam_quant.update(value=False)
+        inpaint_mask_box_threshold.update(value=0.3)
+        inpaint_mask_text_threshold.update(value=0.25)
+        
+        person_mask = generate_mask(
+            person_image, 'sam', None, 'Clothes', 'sam_vit_b_01ec64', False, 0.3, 0.25
+        )
+        inpaint_mask_image.update(value=person_mask)
+
+        # Step 4: Configure other settings
+        performance_selection.update(value=Performance.QUALITY.value)
+        if hasattr(modules.config, 'preset_selection'):
+            modules.config.preset_selection.update(value='initial')
+        aspect_ratios_selection.update(value='1152×896')
+        style_selections.update(value=["Fooocus V2", "Fooocus Enhance", "Fooocus Sharp"])
+
+        # Step 5: Set up control settings
+        mixing_image_prompt_and_inpaint.update(value=True)
+
+        # Step 6: Trigger generation
+        task = get_task(*ctrls)
+        result = generate_clicked(task)
+
+        # Step 7: Process the result
+        if isinstance(result, list) and len(result) > 0:
+            # Ensure each image has a caption
+            processed_result = [(img, f"Result {i+1}") for i, img in enumerate(result)]
+            return processed_result
+        else:
+            return [("", "No result generated")]
+
+    except Exception as e:
+        print(f"Error in generate_virtual_tryon: {str(e)}")
+        return [("", f"Error: {str(e)}")]
 
 PHOTOPEA_MAIN_URL = "https://www.photopea.com/"
 PHOTOPEA_IFRAME_ID = "webui-photopea-iframe"
@@ -42,49 +97,6 @@ def get_photopea_url_params():
     return "#%7B%22resources%22:%5B%22data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIAAQMAAADOtka5AAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAANQTFRF////p8QbyAAAADZJREFUeJztwQEBAAAAgiD/r25IQAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfBuCAAAB0niJ8AAAAABJRU5ErkJggg==%22%5D%7D"
 
 
-def generate_virtual_tryon(clothes_image, person_image):
-    # Step 1: Remove background from clothes image
-    clothes_no_bg = rembg_run(clothes_image)
-
-    # Step 2: Set up Image Prompt
-    ip_images[0] = clothes_no_bg
-    ip_stops[0] = 0.86
-    ip_weights[0] = 0.97
-    ip_types[0] = flags.cn_ip
-    ip_advanced.update(value=True)
-
-    # Step 3: Generate mask for person image
-    inpaint_input_image.update(value={'image': person_image, 'mask': None})
-    inpaint_mask_image.update(value=None)
-    inpaint_mask_model.update(value='sam')
-    inpaint_mask_sam_prompt_text.update(value='Clothes')
-    inpaint_mask_sam_model.update(value='sam_vit_b_01ec64')
-    inpaint_mask_sam_quant.update(value=False)
-    inpaint_mask_box_threshold.update(value=0.3)
-    inpaint_mask_text_threshold.update(value=0.25)
-    
-    person_mask = generate_mask(
-        person_image, 'sam', None, 'Clothes', 'sam_vit_b_01ec64', False, 0.3, 0.25
-    )
-    inpaint_mask_image.update(value=person_mask)
-
-    # Step 4: Configure other settings
-    performance_selection.update(value=Performance.QUALITY.value)
-    if not args_manager.args.disable_preset_selection:
-        preset_selection.update(value='initial')
-    aspect_ratios_selection.update(value='1152×896')
-    style_selections.update(value=["Fooocus V2", "Fooocus Enhance", "Fooocus Sharp"])
-
-    # Step 5: Set up control settings
-    mixing_image_prompt_and_inpaint.update(value=True)
-
-    # Step 6: Trigger generation
-    task = get_task(*ctrls)
-    result = generate_clicked(task)
-
-    return result
-
-    
 def get_task(*args):
     args = list(args)
     args.pop(0)
@@ -177,19 +189,18 @@ with shared.gradio_root:
                                      elem_id='final_gallery',
                                      value=["assets/favicon.png"],
                                      preview=True)
-            with gr.Column(scale=2):
-                with gr.Tab("Virtual Try-On"):
-                    with gr.Row():
-                        clothes_image_input = grh.Image(label='Clothes Image', source='upload', type='numpy')
-                        person_image_input = grh.Image(label='Person Image', source='upload', type='numpy')
-                    virtual_tryon_button = gr.Button(label="Generate Virtual Try-On", variant="primary")
-                    virtual_tryon_gallery = gr.Gallery(label='Results', show_label=False, object_fit='contain', height=768)
+            with gr.Tab("Virtual Try-On"):
+                with gr.Row():
+                    clothes_image_input = grh.Image(label='Clothes Image', source='upload', type='numpy')
+                    person_image_input = grh.Image(label='Person Image', source='upload', type='numpy')
+                virtual_tryon_button = gr.Button(label="Generate Virtual Try-On", variant="primary")
+                virtual_tryon_gallery = gr.Gallery(label='Results', show_label=False, object_fit='contain', height=768)
 
-                virtual_tryon_button.click(
-                    generate_virtual_tryon,
-                    inputs=[clothes_image_input, person_image_input],
-                    outputs=[virtual_tryon_gallery]
-                )
+            virtual_tryon_button.click(
+                generate_virtual_tryon,
+                inputs=[clothes_image_input, person_image_input],
+                outputs=[virtual_tryon_gallery]
+            )
             with gr.Tab("rembg"):
                 with gr.Column(scale=1):
                     rembg_input = grh.Image(label='Drag above image to here', source='upload', type='filepath', scale=20)
