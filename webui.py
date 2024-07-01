@@ -3,10 +3,11 @@ from PIL import Image
 from modules.rembg import rembg_run
 from extras.inpaint_mask import generate_mask_from_image
 import modules.flags as flags
-import time
 from modules.async_worker import AsyncTask
-
-
+import time
+import modules.config
+import modules.constants as constants
+import random
 
 def virtual_tryon_pipeline(clothes_image, person_image):
     # Step 1: Remove background from clothes image
@@ -26,25 +27,26 @@ def virtual_tryon_pipeline(clothes_image, person_image):
     )
 
     # Step 3: Prepare inputs for the main generation process
+    seed = random.randint(constants.MIN_SEED, constants.MAX_SEED)
     task = AsyncTask([
         "",  # prompt
         "",  # negative_prompt
         False,  # translate_prompts
         ["Fooocus V2", "Fooocus Enhance", "Fooocus Sharp"],  # style_selections
-        "Quality",  # performance_selection
+        flags.Performance.QUALITY.value,  # performance_selection
         "1152×896",  # aspect_ratios_selection
         1,  # image_number
-        "png",  # output_format
-        -1,  # image_seed
-        2.0,  # sharpness
-        7.0,  # guidance_scale
-        "model.safetensors",  # base_model_name
-        "None",  # refiner_model_name
-        0.8,  # refiner_switch
-        [["None", 1.0]] * 5,  # loras
+        modules.config.default_output_format,  # output_format
+        seed,  # image_seed
+        modules.config.default_sample_sharpness,  # sharpness
+        modules.config.default_cfg_scale,  # guidance_scale
+        modules.config.default_base_model_name,  # base_model_name
+        modules.config.default_refiner_model_name,  # refiner_model_name
+        modules.config.default_refiner_switch,  # refiner_switch
+        modules.config.default_loras,  # loras
         True,  # input_image_checkbox
         "ip",  # current_tab
-        "Disabled",  # uov_method
+        flags.disabled,  # uov_method
         None,  # uov_input_image
         [],  # outpaint_selections
         {'image': person_image, 'mask': person_mask},  # inpaint_input_image
@@ -56,22 +58,22 @@ def virtual_tryon_pipeline(clothes_image, person_image):
         1.0,  # adm_scaler_positive
         1.0,  # adm_scaler_negative
         0.0,  # adm_scaler_end
-        1.0,  # adaptive_cfg
-        "dpmpp_2m_sde_gpu",  # sampler_name
-        "karras",  # scheduler_name
-        -1,  # overwrite_step
-        -1,  # overwrite_switch
+        modules.config.default_cfg_tsnr,  # adaptive_cfg
+        modules.config.default_sampler,  # sampler_name
+        modules.config.default_scheduler,  # scheduler_name
+        modules.config.default_overwrite_step,  # overwrite_step
+        modules.config.default_overwrite_switch,  # overwrite_switch
         -1,  # overwrite_width
         -1,  # overwrite_height
         -1,  # overwrite_vary_strength
-        -1,  # overwrite_upscale_strength
+        modules.config.default_overwrite_upscale,  # overwrite_upscale_strength
         True,  # mixing_image_prompt_and_vary_upscale
         True,  # mixing_image_prompt_and_inpaint
         False,  # debugging_cn_preprocessor
         False,  # skipping_cn_preprocessor
         100,  # canny_low_threshold
         200,  # canny_high_threshold
-        "joint",  # refiner_swap_method
+        flags.refiner_swap_method,  # refiner_swap_method
         0.5,  # controlnet_softness
         False,  # freeu_enabled
         1.0,  # freeu_b1
@@ -80,7 +82,7 @@ def virtual_tryon_pipeline(clothes_image, person_image):
         1.0,  # freeu_s2
         False,  # debugging_inpaint_preprocessor
         False,  # inpaint_disable_initial_latent
-        "v2.6",  # inpaint_engine
+        modules.config.default_inpaint_engine_version,  # inpaint_engine
         1.0,  # inpaint_strength
         0.618,  # inpaint_respective_field
         False,  # inpaint_mask_upload_checkbox
