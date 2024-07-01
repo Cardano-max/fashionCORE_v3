@@ -12,14 +12,19 @@ import args_manager
 import traceback
 import gradio as gr
 
-def virtual_tryon_pipeline(clothes_image, person_image):
+def remove_background(image):
     try:
-        # Step 1: Remove background from clothes image
-        clothes_no_bg = rembg_run(clothes_image)
+        result = rembg_run(image)
+        return result
+    except Exception as e:
+        print("Error in remove_background:", str(e))
+        traceback.print_exc()
+        return None
 
-        # Step 2: Generate mask for person image
-        person_mask = generate_mask_from_image(
-            person_image,
+def generate_person_mask(image):
+    try:
+        result = generate_mask_from_image(
+            image,
             'sam',
             {
                 'sam_prompt_text': 'Clothes',
@@ -29,20 +34,34 @@ def virtual_tryon_pipeline(clothes_image, person_image):
                 'text_threshold': 0.25
             }
         )
+        if len(result.shape) == 3:
+            result = result[:, :, 0]
+        elif len(result.shape) != 2:
+            raise ValueError(f"Unexpected mask shape: {result.shape}")
+        return result
+    except Exception as e:
+        print("Error in generate_person_mask:", str(e))
+        traceback.print_exc()
+        return None
 
-        # Ensure person_mask is 2D
-        if len(person_mask.shape) == 3:
-            person_mask = person_mask[:, :, 0]
-        elif len(person_mask.shape) != 2:
-            raise ValueError(f"Unexpected mask shape: {person_mask.shape}")
+def virtual_tryon_pipeline(clothes_image, person_image):
+    try:
+        # Step 1: Remove background from clothes image
+        clothes_no_bg = remove_background(clothes_image)
+        if clothes_no_bg is None:
+            return "Error in removing background from clothes image."
+
+        # Step 2: Generate mask for person image
+        person_mask = generate_person_mask(person_image)
+        if person_mask is None:
+            return "Error in generating mask for person image."
 
         print(f"Person mask shape: {person_mask.shape}")  # Debugging line
 
         # Step 3: Prepare inputs for the main generation process
         seed = random.randint(constants.MIN_SEED, constants.MAX_SEED)
-        
         default_stop, default_weight = flags.default_parameters[flags.cn_ip]
-        
+
         args = [
             True,  # generate_image_grid
             "",  # prompt
@@ -142,7 +161,7 @@ def virtual_tryon_pipeline(clothes_image, person_image):
 
         return task.results
     except Exception as e:
-        print("Error occurred:", str(e))
+        print("Error in virtual_tryon_pipeline:", str(e))
         traceback.print_exc()
         return f"Error: {str(e)}"
 
