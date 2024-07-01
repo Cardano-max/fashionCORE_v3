@@ -26,65 +26,111 @@ from modules.ui_gradio_extensions import reload_javascript
 from modules.auth import auth_enabled, check_auth
 from modules.util import is_json
 
-import time
-from modules.async_worker import AsyncTask
-from modules.flags import Performance
-import modules.config
+import gradio as gr
+import numpy as np
+from PIL import Image
+from rembg import remove
+from modules.rembg import rembg_run
+from extras.inpaint_mask import generate_mask_from_image
 import modules.flags as flags
+from modules.async_worker import AsyncTask
+import time
 
+def virtual_tryon_pipeline(clothes_image, person_image):
+    # Step 1: Remove background from clothes image
+    clothes_no_bg = rembg_run(clothes_image)
 
-def generate_virtual_tryon(clothes_image, person_image):
-    try:
-        # Step 1: Remove background from clothes image
-        clothes_no_bg = rembg_run(clothes_image)
+    # Step 2: Generate mask for person image
+    person_mask = generate_mask_from_image(
+        person_image,
+        'sam',
+        {
+            'sam_prompt_text': 'Clothes',
+            'sam_model': 'sam_vit_b_01ec64',
+            'sam_quant': False,
+            'box_threshold': 0.3,
+            'text_threshold': 0.25
+        }
+    )
 
-        # Step 2: Set up Image Prompt
-        ip_images[0].update(value=clothes_no_bg)
-        ip_stops[0].update(value=0.86)
-        ip_weights[0].update(value=0.97)
-        ip_types[0].update(value=flags.cn_ip)
-        ip_advanced.update(value=True)
+    # Step 3: Prepare inputs for the main generation process
+    task = AsyncTask([
+        "",  # prompt
+        "",  # negative_prompt
+        False,  # translate_prompts
+        ["Fooocus V2", "Fooocus Enhance", "Fooocus Sharp"],  # style_selections
+        "Quality",  # performance_selection
+        "1152×896",  # aspect_ratios_selection
+        1,  # image_number
+        "png",  # output_format
+        -1,  # image_seed
+        2.0,  # sharpness
+        7.0,  # guidance_scale
+        "model.safetensors",  # base_model_name
+        "None",  # refiner_model_name
+        0.8,  # refiner_switch
+        [["None", 1.0]] * 5,  # loras
+        True,  # input_image_checkbox
+        "ip",  # current_tab
+        "Disabled",  # uov_method
+        None,  # uov_input_image
+        [],  # outpaint_selections
+        {'image': person_image, 'mask': person_mask},  # inpaint_input_image
+        "",  # inpaint_additional_prompt
+        None,  # inpaint_mask_image_upload
+        False,  # disable_preview
+        False,  # disable_intermediate_results
+        False,  # black_out_nsfw
+        1.0,  # adm_scaler_positive
+        1.0,  # adm_scaler_negative
+        0.0,  # adm_scaler_end
+        1.0,  # adaptive_cfg
+        "dpmpp_2m_sde_gpu",  # sampler_name
+        "karras",  # scheduler_name
+        -1,  # overwrite_step
+        -1,  # overwrite_switch
+        -1,  # overwrite_width
+        -1,  # overwrite_height
+        -1,  # overwrite_vary_strength
+        -1,  # overwrite_upscale_strength
+        True,  # mixing_image_prompt_and_vary_upscale
+        True,  # mixing_image_prompt_and_inpaint
+        False,  # debugging_cn_preprocessor
+        False,  # skipping_cn_preprocessor
+        100,  # canny_low_threshold
+        200,  # canny_high_threshold
+        "joint",  # refiner_swap_method
+        0.5,  # controlnet_softness
+        False,  # freeu_enabled
+        1.0,  # freeu_b1
+        1.0,  # freeu_b2
+        1.0,  # freeu_s1
+        1.0,  # freeu_s2
+        False,  # debugging_inpaint_preprocessor
+        False,  # inpaint_disable_initial_latent
+        "v2.6",  # inpaint_engine
+        1.0,  # inpaint_strength
+        0.618,  # inpaint_respective_field
+        False,  # inpaint_mask_upload_checkbox
+        False,  # invert_mask_checkbox
+        0,  # inpaint_erode_or_dilate
+        clothes_no_bg,  # First image prompt (clothes without background)
+        0.86,  # Stop at for clothes image
+        0.97,  # Weight for clothes image
+        flags.cn_ip,  # Type for clothes image
+    ])
 
-        # Step 3: Generate mask for person image
-        inpaint_input_image.update(value={'image': person_image, 'mask': None})
-        inpaint_mask_image.update(value=None)
-        inpaint_mask_model.update(value='sam')
-        inpaint_mask_sam_prompt_text.update(value='Clothes')
-        inpaint_mask_sam_model.update(value='sam_vit_b_01ec64')
-        inpaint_mask_sam_quant.update(value=False)
-        inpaint_mask_box_threshold.update(value=0.3)
-        inpaint_mask_text_threshold.update(value=0.25)
-        
-        person_mask = generate_mask(
-            person_image, 'sam', None, 'Clothes', 'sam_vit_b_01ec64', False, 0.3, 0.25
-        )
-        inpaint_mask_image.update(value=person_mask)
+    # Step 4: Generate the image
+    from webui import generate_clicked
+    result = generate_clicked(task)
 
-        # Step 4: Configure other settings
-        performance_selection.update(value=Performance.QUALITY.value)
-        if hasattr(modules.config, 'preset_selection'):
-            modules.config.preset_selection.update(value='initial')
-        aspect_ratios_selection.update(value='1152×896')
-        style_selections.update(value=["Fooocus V2", "Fooocus Enhance", "Fooocus Sharp"])
+    # Wait for the task to complete
+    while not task.processing:
+        time.sleep(0.1)
+    while task.processing:
+        time.sleep(0.1)
 
-        # Step 5: Set up control settings
-        mixing_image_prompt_and_inpaint.update(value=True)
-
-        # Step 6: Trigger generation
-        task = get_task(*ctrls)
-        result = generate_clicked(task)
-
-        # Step 7: Process the result
-        if isinstance(result, list) and len(result) > 0:
-            # Ensure each image has a caption
-            processed_result = [(img, f"Result {i+1}") for i, img in enumerate(result)]
-            return processed_result
-        else:
-            return [("", "No result generated")]
-
-    except Exception as e:
-        print(f"Error in generate_virtual_tryon: {str(e)}")
-        return [("", f"Error: {str(e)}")]
+    return task.results
 
 PHOTOPEA_MAIN_URL = "https://www.photopea.com/"
 PHOTOPEA_IFRAME_ID = "webui-photopea-iframe"
@@ -189,18 +235,16 @@ with shared.gradio_root:
                                      elem_id='final_gallery',
                                      value=["assets/favicon.png"],
                                      preview=True)
-            with gr.Tab("Virtual Try-On"):
+            with gr.Tab("Photopea"):
                 with gr.Row():
-                    clothes_image_input = grh.Image(label='Clothes Image', source='upload', type='numpy')
-                    person_image_input = grh.Image(label='Person Image', source='upload', type='numpy')
-                virtual_tryon_button = gr.Button(label="Generate Virtual Try-On", variant="primary")
-                virtual_tryon_gallery = gr.Gallery(label='Results', show_label=False, object_fit='contain', height=768)
-
-            virtual_tryon_button.click(
-                generate_virtual_tryon,
-                inputs=[clothes_image_input, person_image_input],
-                outputs=[virtual_tryon_gallery]
-            )
+                    photopea = gr.HTML(
+                        f"""<iframe id="{PHOTOPEA_IFRAME_ID}" 
+                        src = "{PHOTOPEA_MAIN_URL}{get_photopea_url_params()}" 
+                        width = "{PHOTOPEA_IFRAME_WIDTH}" 
+                        height = "{PHOTOPEA_IFRAME_HEIGHT}"
+                        onload = "{PHOTOPEA_IFRAME_LOADED_EVENT}(this)">"""
+                    )
+                gr.Markdown("Powered by [🦜 Photopea API](https://www.photopea.com/api)")
             with gr.Tab("rembg"):
                 with gr.Column(scale=1):
                     rembg_input = grh.Image(label='Drag above image to here', source='upload', type='filepath', scale=20)
@@ -308,6 +352,24 @@ with shared.gradio_root:
                         ip_advanced.change(ip_advance_checked, inputs=ip_advanced,
                                            outputs=ip_ad_cols + ip_types + ip_stops + ip_weights,
                                            queue=False, show_progress=False)
+
+                    # Add this to your Gradio interface
+                    with gr.Blocks() as virtual_tryon_interface:
+                        with gr.Row():
+                            clothes_input = gr.Image(label="Clothes Image", type="numpy")
+                            person_input = gr.Image(label="Person Image", type="numpy")
+                        generate_button = gr.Button("Generate Virtual Try-On")
+                        output_gallery = gr.Gallery(label="Results")
+
+                        generate_button.click(
+                            virtual_tryon_pipeline,
+                            inputs=[clothes_input, person_input],
+                            outputs=[output_gallery]
+                        )
+
+                    # Launch the interface
+                    virtual_tryon_interface.launch()
+
 
                     with gr.TabItem(label='Inpaint or Outpaint') as inpaint_tab:
                         with gr.Row():
