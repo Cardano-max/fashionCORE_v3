@@ -47,7 +47,6 @@ def get_photopea_url_params():
     return "#%7B%22resources%22:%5B%22data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIAAQMAAADOtka5AAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAANQTFRF////p8QbyAAAADZJREFUeJztwQEBAAAAgiD/r25IQAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfBuCAAAB0niJ8AAAAABJRU5ErkJggg==%22%5D%7D"
 
 
-
 def virtual_tryon(clothing_image, person_image):
     # Step 1: Remove background from clothing image
     clothing_without_bg = rembg_run(clothing_image)
@@ -82,14 +81,17 @@ def virtual_tryon(clothing_image, person_image):
     styles = ["Fooocus V2", "Fooocus Enhance", "Fooocus Sharp"]
 
     # Step 6: Prepare task
+    loras = [['None', 1.0] for _ in range(modules.flags.lora_count)]
     task = worker.AsyncTask(args=[
         False,  # generate_image_grid
         prompt, negative_prompt, False,  # translate_prompts
-        styles, performance, aspect_ratios, 1,  # image_number
+        styles, performance.value, aspect_ratios, 1,  # image_number
         modules.config.default_output_format, 0,  # image_seed
         modules.config.default_sample_sharpness, modules.config.default_cfg_scale,
         modules.config.default_base_model_name, modules.config.default_refiner_model_name,
-        modules.config.default_refiner_switch, True,  # input_image_checkbox
+        modules.config.default_refiner_switch,
+    ] + [item for lora in loras for item in lora] + [
+        True,  # input_image_checkbox
         'ip',  # current_tab
         flags.disabled,  # uov_method
         None,  # uov_input_image
@@ -103,8 +105,9 @@ def virtual_tryon(clothing_image, person_image):
         False, False, 64, 128,  # debugging_cn_preprocessor, skipping_cn_preprocessor, canny_low_threshold, canny_high_threshold
         flags.refiner_swap_method, 0.25,  # refiner_swap_method, controlnet_softness
         False, 1.01, 1.02, 0.99, 0.95,  # freeu_enabled, freeu_b1, freeu_b2, freeu_s1, freeu_s2
-    ] + [False, False, 'None', 1.0, 0.618, False, False, 0]  # inpaint_ctrls
-      + [ip_images[0], ip_stops[0], ip_weights[0], ip_types[0]])
+        False, False, 'None', 1.0, 0.618, False, False, 0,  # inpaint_ctrls
+        ip_images[0], ip_stops[0], ip_weights[0], ip_types[0]
+    ])
 
     # Step 7: Generate image
     worker.async_tasks.append(task)
