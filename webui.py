@@ -28,6 +28,9 @@ def virtual_tryon_pipeline(clothes_image, person_image):
 
     # Step 3: Prepare inputs for the main generation process
     seed = random.randint(constants.MIN_SEED, constants.MAX_SEED)
+    
+    default_stop, default_weight = flags.default_parameters[flags.cn_ip]
+    
     task = AsyncTask([
         True,  # generate_image_grid
         "",  # prompt
@@ -35,7 +38,7 @@ def virtual_tryon_pipeline(clothes_image, person_image):
         False,  # translate_prompts
         ["Fooocus V2", "Fooocus Enhance", "Fooocus Sharp"],  # style_selections
         flags.Performance.QUALITY.value,  # performance_selection
-        "1152×896",  # aspect_ratios_selection
+        modules.config.default_aspect_ratio,  # aspect_ratios_selection
         1,  # image_number
         modules.config.default_output_format,  # output_format
         seed,  # image_seed
@@ -55,7 +58,7 @@ def virtual_tryon_pipeline(clothes_image, person_image):
         None,  # inpaint_mask_image_upload
         False,  # disable_preview
         False,  # disable_intermediate_results
-        False,  # black_out_nsfw
+        modules.config.default_black_out_nsfw,  # black_out_nsfw
         1.0,  # adm_scaler_positive
         1.0,  # adm_scaler_negative
         0.0,  # adm_scaler_end
@@ -90,8 +93,8 @@ def virtual_tryon_pipeline(clothes_image, person_image):
         False,  # invert_mask_checkbox
         0,  # inpaint_erode_or_dilate
         clothes_no_bg,  # First image prompt (clothes without background)
-        0.86,  # Stop at for clothes image
-        0.97,  # Weight for clothes image
+        default_stop,  # Stop at for clothes image
+        default_weight,  # Weight for clothes image
         flags.cn_ip,  # Type for clothes image
     ])
 
