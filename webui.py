@@ -3,7 +3,6 @@ from PIL import Image
 from modules.rembg import rembg_run
 from extras.inpaint_mask import generate_mask_from_image
 import modules.flags as flags
-from modules.async_worker import AsyncTask, generate_clicked
 import time
 from modules.async_worker import AsyncTask
 
