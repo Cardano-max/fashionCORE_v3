@@ -120,8 +120,6 @@ def virtual_tryon(clothing_image, person_image):
             break
     
     return results
-
-
     
 def get_task(currentTask, *args):
     return worker.AsyncTask(args=list(args))
