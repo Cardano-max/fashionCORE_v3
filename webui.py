@@ -124,8 +124,12 @@ def virtual_tryon(clothing_image, person_image):
     return results
 
     
-def get_task(currentTask, *args):
-    return worker.AsyncTask(args=list(args))
+
+def get_task(*args):
+    args = list(args)
+    args.pop(0)
+
+    return worker.AsyncTask(args=args)
 
 def generate_clicked(task):
     import ldm_patched.modules.model_management as model_management
