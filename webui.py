@@ -31,7 +31,7 @@ def virtual_tryon_pipeline(clothes_image, person_image):
     # Ensure person_mask is 2D
     if len(person_mask.shape) == 3:
         person_mask = person_mask[:, :, 0]
-
+    
     # Step 3: Prepare inputs for the main generation process
     seed = random.randint(constants.MIN_SEED, constants.MAX_SEED)
     
