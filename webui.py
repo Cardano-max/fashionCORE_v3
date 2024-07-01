@@ -367,8 +367,6 @@ with shared.gradio_root:
                             outputs=[output_gallery]
                         )
 
-                    # Launch the interface
-                    virtual_tryon_interface.launch()
 
 
                     with gr.TabItem(label='Inpaint or Outpaint') as inpaint_tab:
