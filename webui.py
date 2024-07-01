@@ -11,8 +11,6 @@ import random
 import args_manager
 import cv2
 
-import numpy as np
-from PIL import Image
 import gradio as gr
 import traceback
 
