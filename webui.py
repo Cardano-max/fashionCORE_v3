@@ -5,6 +5,9 @@ from extras.inpaint_mask import generate_mask_from_image
 import modules.flags as flags
 from modules.async_worker import AsyncTask, generate_clicked
 import time
+from modules.async_worker import AsyncTask
+
+
 
 def virtual_tryon_pipeline(clothes_image, person_image):
     # Step 1: Remove background from clothes image
@@ -90,8 +93,9 @@ def virtual_tryon_pipeline(clothes_image, person_image):
         flags.cn_ip,  # Type for clothes image
     ])
 
-    # Step 4: Generate the image
-    result = generate_clicked(task)
+    # Step 4: Add the task to the async_tasks list
+    from modules.async_worker import async_tasks
+    async_tasks.append(task)
 
     # Wait for the task to complete
     while not task.processing:
