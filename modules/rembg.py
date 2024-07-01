@@ -5,7 +5,7 @@ import numpy as np
 
 def rembg_run(input_image, progress=gr.Progress(track_tqdm=True)):
     if isinstance(input_image, np.ndarray):
-        input_image = Image.fromarray(input_image)
+        input_image = Image.fromarray(input_image.astype('uint8'), 'RGB')
     elif isinstance(input_image, str):
         input_image = Image.open(input_image)
     else:

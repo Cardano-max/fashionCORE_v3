@@ -1,13 +1,10 @@
-import gradio as gr
 import numpy as np
 from PIL import Image
-from rembg import remove
 from modules.rembg import rembg_run
 from extras.inpaint_mask import generate_mask_from_image
 import modules.flags as flags
-from modules.async_worker import AsyncTask
+from modules.async_worker import AsyncTask, generate_clicked
 import time
-from modules.async_worker import generate_clicked
 
 def virtual_tryon_pipeline(clothes_image, person_image):
     # Step 1: Remove background from clothes image
@@ -84,7 +81,7 @@ def virtual_tryon_pipeline(clothes_image, person_image):
         "v2.6",  # inpaint_engine
         1.0,  # inpaint_strength
         0.618,  # inpaint_respective_field
-        True,  # inpaint_mask_upload_checkbox
+        False,  # inpaint_mask_upload_checkbox
         False,  # invert_mask_checkbox
         0,  # inpaint_erode_or_dilate
         clothes_no_bg,  # First image prompt (clothes without background)
@@ -105,6 +102,8 @@ def virtual_tryon_pipeline(clothes_image, person_image):
     return task.results
 
 # Add this to your Gradio interface
+import gradio as gr
+
 with gr.Blocks() as virtual_tryon_interface:
     with gr.Row():
         clothes_input = gr.Image(label="Clothes Image", type="numpy")
