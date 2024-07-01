@@ -83,7 +83,7 @@ def virtual_tryon_pipeline(clothes_image, person_image):
         "v2.6",  # inpaint_engine
         1.0,  # inpaint_strength
         0.618,  # inpaint_respective_field
-        False,  # inpaint_mask_upload_checkbox
+        True,  # inpaint_mask_upload_checkbox
         False,  # invert_mask_checkbox
         0,  # inpaint_erode_or_dilate
         clothes_no_bg,  # First image prompt (clothes without background)
@@ -119,4 +119,4 @@ with gr.Blocks() as virtual_tryon_interface:
     )
 
 # Launch the interface
-virtual_tryon_interface.launch()
+virtual_tryon_interface.launch(share=True)
