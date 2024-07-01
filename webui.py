@@ -161,8 +161,10 @@ with gr.Blocks() as virtual_tryon_interface:
     generate_button.click(
         virtual_tryon_pipeline,
         inputs=[clothes_input, person_input],
-        outputs=[output_gallery]
+        outputs=[output_gallery],
+        # Increase the timeout duration
+        timeout=600  # Set to 10 minutes, adjust as necessary
     )
 
-# Launch the interface
-virtual_tryon_interface.launch(share=True)
+# Launch the interface with increased timeout
+virtual_tryon_interface.launch(share=True, server_name="0.0.0.0", server_port=7860)
