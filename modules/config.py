@@ -432,7 +432,7 @@ default_black_out_nsfw = get_config_item_or_set_default(
 )
 default_inpaint_mask_model = get_config_item_or_set_default(
     key='default_inpaint_mask_model',
-    default_value='isnet-general-use',
+    default_value='sam',
     validator=lambda x: x in modules.flags.inpaint_mask_models
 )
 
