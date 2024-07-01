@@ -139,6 +139,7 @@ def worker():
         args = async_task.args
         args.reverse()
 
+        # Pop arguments from the args list
         prompt = args.pop()
         negative_prompt = args.pop()
         translate_prompts = args.pop()
@@ -162,7 +163,6 @@ def worker():
         inpaint_input_image = args.pop()
         inpaint_additional_prompt = args.pop()
         inpaint_mask_image_upload = args.pop()
-
         disable_preview = args.pop()
         disable_intermediate_results = args.pop()
         black_out_nsfw = args.pop()
@@ -259,9 +259,9 @@ def worker():
         print(f'[Parameters] Sharpness = {sharpness}')
         print(f'[Parameters] ControlNet Softness = {controlnet_softness}')
         print(f'[Parameters] ADM Scale = '
-              f'{adm_scaler_positive} : '
-              f'{adm_scaler_negative} : '
-              f'{adm_scaler_end}')
+            f'{adm_scaler_positive} : '
+            f'{adm_scaler_negative} : '
+            f'{adm_scaler_end}')
 
         patch_settings[pid] = PatchSettings(
             sharpness,
@@ -322,7 +322,11 @@ def worker():
                     current_tab == 'ip' and mixing_image_prompt_and_inpaint)) \
                     and isinstance(inpaint_input_image, dict):
                 inpaint_image = inpaint_input_image['image']
-                inpaint_mask = inpaint_input_image['mask'][:, :, 0]
+                inpaint_mask = inpaint_input_image['mask']
+                
+                # Ensure inpaint_mask is 2D
+                if len(inpaint_mask.shape) == 3:
+                    inpaint_mask = inpaint_mask[:, :, 0]
 
                 if inpaint_mask_upload_checkbox:
                     if isinstance(inpaint_mask_image_upload, np.ndarray):
@@ -552,8 +556,8 @@ def worker():
                 direct_return = True
             elif image_is_super_large:
                 print('Image is too large. Directly returned the SR image. '
-                      'Usually directly return SR image at 4K resolution '
-                      'yields better results than SDXL diffusion.')
+                    'Usually directly return SR image at 4K resolution '
+                    'yields better results than SDXL diffusion.')
                 direct_return = True
             else:
                 direct_return = False
@@ -594,21 +598,21 @@ def worker():
                 if 'top' in outpaint_selections:
                     inpaint_image = np.pad(inpaint_image, [[int(H * 0.3), 0], [0, 0], [0, 0]], mode='edge')
                     inpaint_mask = np.pad(inpaint_mask, [[int(H * 0.3), 0], [0, 0]], mode='constant',
-                                          constant_values=255)
+                                        constant_values=255)
                 if 'bottom' in outpaint_selections:
                     inpaint_image = np.pad(inpaint_image, [[0, int(H * 0.3)], [0, 0], [0, 0]], mode='edge')
                     inpaint_mask = np.pad(inpaint_mask, [[0, int(H * 0.3)], [0, 0]], mode='constant',
-                                          constant_values=255)
+                                        constant_values=255)
 
                 H, W, C = inpaint_image.shape
                 if 'left' in outpaint_selections:
                     inpaint_image = np.pad(inpaint_image, [[0, 0], [int(H * 0.3), 0], [0, 0]], mode='edge')
                     inpaint_mask = np.pad(inpaint_mask, [[0, 0], [int(H * 0.3), 0]], mode='constant',
-                                          constant_values=255)
+                                        constant_values=255)
                 if 'right' in outpaint_selections:
                     inpaint_image = np.pad(inpaint_image, [[0, 0], [0, int(H * 0.3)], [0, 0]], mode='edge')
                     inpaint_mask = np.pad(inpaint_mask, [[0, 0], [0, int(H * 0.3)]], mode='constant',
-                                          constant_values=255)
+                                        constant_values=255)
 
                 inpaint_image = np.ascontiguousarray(inpaint_image.copy())
                 inpaint_mask = np.ascontiguousarray(inpaint_mask.copy())
@@ -626,7 +630,7 @@ def worker():
 
             if debugging_inpaint_preprocessor:
                 yield_result(async_task, inpaint_worker.current_task.visualize_mask_processing(), black_out_nsfw,
-                             do_not_show_finished_images=True)
+                            do_not_show_finished_images=True)
                 return
 
             progressbar(async_task, 13, 'VAE Inpaint encoding ...')
@@ -829,21 +833,21 @@ def worker():
 
                 for x in imgs:
                     d = [('Prompt', 'prompt', task['log_positive_prompt']),
-                         ('Negative Prompt', 'negative_prompt', task['log_negative_prompt']),
-                         ('Fooocus V2 Expansion', 'prompt_expansion', task['expansion']),
-                         ('Styles', 'styles', str(raw_style_selections)),
-                         ('Performance', 'performance', performance_selection.value),
-                         ('Steps', 'steps', steps),
-                         ('Resolution', 'resolution', str((width, height))),
-                         ('Guidance Scale', 'guidance_scale', guidance_scale),
-                         ('Sharpness', 'sharpness', modules.patch.patch_settings[pid].sharpness),
-                         ('ADM Guidance', 'adm_guidance', str((
-                             modules.patch.patch_settings[pid].positive_adm_scale,
-                             modules.patch.patch_settings[pid].negative_adm_scale,
-                             modules.patch.patch_settings[pid].adm_scaler_end))),
-                         ('Base Model', 'base_model', base_model_name),
-                         ('Refiner Model', 'refiner_model', refiner_model_name),
-                         ('Refiner Switch', 'refiner_switch', refiner_switch)]
+                        ('Negative Prompt', 'negative_prompt', task['log_negative_prompt']),
+                        ('Fooocus V2 Expansion', 'prompt_expansion', task['expansion']),
+                        ('Styles', 'styles', str(raw_style_selections)),
+                        ('Performance', 'performance', performance_selection.value),
+                        ('Steps', 'steps', steps),
+                        ('Resolution', 'resolution', str((width, height))),
+                        ('Guidance Scale', 'guidance_scale', guidance_scale),
+                        ('Sharpness', 'sharpness', modules.patch.patch_settings[pid].sharpness),
+                        ('ADM Guidance', 'adm_guidance', str((
+                            modules.patch.patch_settings[pid].positive_adm_scale,
+                            modules.patch.patch_settings[pid].negative_adm_scale,
+                            modules.patch.patch_settings[pid].adm_scaler_end))),
+                        ('Base Model', 'base_model', base_model_name),
+                        ('Refiner Model', 'refiner_model', refiner_model_name),
+                        ('Refiner Switch', 'refiner_switch', refiner_switch)]
 
                     if refiner_model_name != 'None':
                         if overwrite_switch > 0:
@@ -864,8 +868,8 @@ def worker():
                     if save_metadata_to_images:
                         metadata_parser = modules.meta_parser.get_metadata_parser(metadata_scheme)
                         metadata_parser.set_data(task['log_positive_prompt'], task['positive'],
-                                                 task['log_negative_prompt'], task['negative'],
-                                                 steps, base_model_name, refiner_model_name, loras)
+                                                task['log_negative_prompt'], task['negative'],
+                                                steps, base_model_name, refiner_model_name, loras)
 
                     for li, (n, w) in enumerate(loras):
                         if n != 'None':
@@ -875,8 +879,8 @@ def worker():
                     img_paths.append(log(x, d, metadata_parser, output_format))
 
                 yield_result(async_task, img_paths, black_out_nsfw, do_not_show_finished_images=len(tasks) == 1
-                             or disable_intermediate_results or sampler_name == 'lcm',
-                             progressbar_index=int(15.0 + 85.0 * float((current_task_id + 1) * steps) / float(all_steps)))
+                            or disable_intermediate_results or sampler_name == 'lcm',
+                            progressbar_index=int(15.0 + 85.0 * float((current_task_id + 1) * steps) / float(all_steps)))
             except ldm_patched.modules.model_management.InterruptProcessingException as e:
                 if async_task.last_stop == 'skip':
                     print('User skipped')
@@ -910,6 +914,7 @@ def worker():
                 if pid in modules.patch.patch_settings:
                     del modules.patch.patch_settings[pid]
     pass
+
 
 
 threading.Thread(target=worker, daemon=True).start()
