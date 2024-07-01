@@ -27,6 +27,15 @@ from modules.ui_gradio_extensions import reload_javascript
 from modules.auth import auth_enabled, check_auth
 from modules.util import is_json
 
+import modules.rembg as rembg
+from extras.inpaint_mask import generate_mask_from_image
+import modules.flags as flags
+from modules.flags import Performance
+import modules.config
+import modules.worker as worker
+import numpy as np
+from PIL import Image
+
 PHOTOPEA_MAIN_URL = "https://www.photopea.com/"
 PHOTOPEA_IFRAME_ID = "webui-photopea-iframe"
 PHOTOPEA_IFRAME_HEIGHT = 684
@@ -38,15 +47,35 @@ def get_photopea_url_params():
     return "#%7B%22resources%22:%5B%22data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIAAQMAAADOtka5AAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAANQTFRF////p8QbyAAAADZJREFUeJztwQEBAAAAgiD/r25IQAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfBuCAAAB0niJ8AAAAABJRU5ErkJggg==%22%5D%7D"
 
 
-import time
-import modules.core as core
+import modules.rembg as rembg
+from extras.inpaint_mask import generate_mask_from_image
+import modules.flags as flags
+from modules.flags import Performance
+import modules.config
+import modules.worker as worker
+import numpy as np
+from PIL import Image
 
 def virtual_tryon(clothing_image, person_image):
+    # Convert inputs to numpy arrays if they're not already
+    if isinstance(clothing_image, str):
+        clothing_image = np.array(Image.open(clothing_image))
+    if isinstance(person_image, str):
+        person_image = np.array(Image.open(person_image))
+
     # Step 1: Remove background from clothing image
-    clothing_without_bg = rembg_run(clothing_image)
+    clothing_without_bg = rembg.rembg_run(clothing_image)
+    clothing_without_bg = np.array(clothing_without_bg)
 
     # Step 2: Generate mask for person image
-    person_mask = generate_mask(person_image, 'sam', 'Clothes', 'sam_vit_b_01ec64', False, 0.3, 0.25)
+    mask_extras = {
+        'sam_prompt_text': 'Clothes',
+        'box_threshold': 0.3,
+        'text_threshold': 0.25,
+        'sam_model': 'sam_vit_b_01ec64',
+        'sam_quant': False
+    }
+    person_mask = generate_mask_from_image(person_image, 'sam', mask_extras)
 
     # Step 3: Set up Image Prompt
     ip_images = [clothing_without_bg]
@@ -93,28 +122,20 @@ def virtual_tryon(clothing_image, person_image):
       + [ip_images[0], ip_stops[0], ip_weights[0], ip_types[0]])
 
     # Step 7: Generate image
-    results = []
-    for flag, product in process_generate_clicked(task):
-        if flag == 'finish':
-            results = product
-            break
-
+    results = process_generate_clicked(task)
     return results
 
 def process_generate_clicked(task):
-    execution_start_time = time.perf_counter()
     worker.async_tasks.append(task)
-
+    
+    results = []
     while len(task.yields) > 0:
         flag, product = task.yields.pop(0)
-        if flag == 'preview':
-            yield 'preview', product
-        elif flag == 'results':
-            yield 'results', product
-        elif flag == 'finish':
-            yield 'finish', product
-
-    print(f'Total time: {time.perf_counter() - execution_start_time:.2f} seconds')
+        if flag == 'finish':
+            results = product
+            break
+    
+    return results
 
     
 def get_task(currentTask, *args):
@@ -206,14 +227,15 @@ with shared.gradio_root:
                                      elem_id='final_gallery',
                                      value=["assets/favicon.png"],
                                      preview=True)
+            # Add this to the existing UI
             with gr.Tab("Virtual Try-On"):
                 with gr.Row():
-                    clothing_input = grh.Image(label="Clothing Image", source="upload", type="filepath")
-                    person_input = grh.Image(label="Person Image", source="upload", type="filepath")
+                    clothing_input = grh.Image(label="Clothing Image", source="upload", type="numpy")
+                    person_input = grh.Image(label="Person Image", source="upload", type="numpy")
                 tryon_button = gr.Button("Generate Try-On")
                 tryon_output = gr.Gallery(label="Try-On Result")
 
-                tryon_button.click(virtual_tryon, inputs=[clothing_input, person_input], outputs=tryon_output)
+            tryon_button.click(virtual_tryon, inputs=[clothing_input, person_input], outputs=tryon_output)
 
             with gr.Tab("rembg"):
                 with gr.Column(scale=1):
