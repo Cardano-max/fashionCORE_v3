@@ -7,6 +7,7 @@ from extras.inpaint_mask import generate_mask_from_image
 import modules.flags as flags
 from modules.async_worker import AsyncTask
 import time
+from modules.async_worker import generate_clicked
 
 def virtual_tryon_pipeline(clothes_image, person_image):
     # Step 1: Remove background from clothes image
@@ -93,7 +94,6 @@ def virtual_tryon_pipeline(clothes_image, person_image):
     ])
 
     # Step 4: Generate the image
-    from webui import generate_clicked
     result = generate_clicked(task)
 
     # Wait for the task to complete
