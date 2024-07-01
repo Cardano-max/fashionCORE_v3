@@ -8,6 +8,7 @@ import time
 import modules.config
 import modules.constants as constants
 import random
+import args_manager
 
 def virtual_tryon_pipeline(clothes_image, person_image):
     # Step 1: Remove background from clothes image
@@ -92,6 +93,8 @@ def virtual_tryon_pipeline(clothes_image, person_image):
         False,  # inpaint_mask_upload_checkbox
         False,  # invert_mask_checkbox
         0,  # inpaint_erode_or_dilate
+        modules.config.default_save_metadata_to_images,  # save_metadata_to_images
+        modules.config.default_metadata_scheme,  # metadata_scheme
         clothes_no_bg,  # First image prompt (clothes without background)
         default_stop,  # Stop at for clothes image
         default_weight,  # Weight for clothes image
