@@ -126,7 +126,7 @@ def virtual_tryon_pipeline(clothes_image, person_image):
             modules.config.default_inpaint_engine_version,  # inpaint_engine
             1.0,  # inpaint_strength
             0.618,  # inpaint_respective_field
-            False,  # inpaint_mask_upload_checkbox
+            True,  # inpaint_mask_upload_checkbox
             False,  # invert_mask_checkbox
             0,  # inpaint_erode_or_dilate
         ])
