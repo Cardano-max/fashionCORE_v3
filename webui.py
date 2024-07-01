@@ -29,7 +29,6 @@ from modules.auth import auth_enabled, check_auth
 from modules.util import is_json
 from extras.inpaint_mask import generate_mask_from_image
 
-import modules.async_worker as worker
 import modules.rembg as rembg
 from extras.inpaint_mask import generate_mask_from_image
 import modules.flags as flags
@@ -51,7 +50,7 @@ def get_photopea_url_params():
 
 def virtual_tryon(clothing_image, person_image):
     # Step 1: Remove background from clothing image
-    clothing_without_bg = rembg_run(clothing_image)
+    clothing_without_bg = rembg.rembg_run(clothing_image)
 
     # Step 2: Generate mask for person image
     mask_extras = {
@@ -214,7 +213,6 @@ with shared.gradio_root:
                                      elem_id='final_gallery',
                                      value=["assets/favicon.png"],
                                      preview=True)
-            # Add this to the existing UI
             with gr.Tab("Virtual Try-On"):
                 with gr.Row():
                     clothing_input = grh.Image(label="Clothing Image", source="upload", type="numpy")
