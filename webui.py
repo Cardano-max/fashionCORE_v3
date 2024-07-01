@@ -9,10 +9,8 @@ import modules.config
 import modules.constants as constants
 import random
 import args_manager
-import cv2
-
-import gradio as gr
 import traceback
+import gradio as gr
 
 def virtual_tryon_pipeline(clothes_image, person_image):
     try:
@@ -159,10 +157,8 @@ with gr.Blocks() as virtual_tryon_interface:
     generate_button.click(
         virtual_tryon_pipeline,
         inputs=[clothes_input, person_input],
-        outputs=[output_gallery],
-        # Increase the timeout duration
-        timeout=600  # Set to 10 minutes, adjust as necessary
+        outputs=[output_gallery]
     )
 
-# Launch the interface with increased timeout
+# Launch the interface
 virtual_tryon_interface.launch(share=True, server_name="0.0.0.0", server_port=7860)
