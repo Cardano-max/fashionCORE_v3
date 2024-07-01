@@ -13,7 +13,7 @@ import modules.flags as flags
 import modules.gradio_hijack as grh
 import modules.style_sorter as style_sorter
 import modules.meta_parser
-# from modules.load_online import load_demos_names, load_tools_names, load_demos_url, load_tools_url
+from modules.load_online import load_demos_names, load_tools_names, load_demos_url, load_tools_url
 import args_manager
 import copy
 import launch
