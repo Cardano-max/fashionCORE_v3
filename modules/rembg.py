@@ -1,17 +1,15 @@
-from rembg import remove
-from PIL import Image
 import numpy as np
+from PIL import Image
+import rembg
+import traceback
 
-def rembg_run(input_image):
-    if isinstance(input_image, str):
-        # If input is a file path
-        with Image.open(input_image) as img:
-            input_array = np.array(img)
-    elif isinstance(input_image, np.ndarray):
-        # If input is already a numpy array
-        input_array = input_image
-    else:
-        raise ValueError(f"Input type {type(input_image)} is not supported.")
-    
-    output_array = remove(input_array)
-    return Image.fromarray(output_array)
+def rembg_run(image):
+    try:
+        if isinstance(image, np.ndarray):
+            image = Image.fromarray(image)
+        output = rembg.remove(image)
+        return np.array(output)
+    except Exception as e:
+        print("Error in rembg_run:", str(e))
+        traceback.print_exc()
+        return None

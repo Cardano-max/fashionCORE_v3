@@ -6,9 +6,7 @@ from extras.GroundingDINO.util.inference import default_groundingdino
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-
 def run_grounded_sam(input_image, text_prompt, box_threshold, text_threshold):
-
     # run grounding dino model
     boxes, _ = default_groundingdino(
         image=np.array(input_image),
@@ -18,7 +16,6 @@ def run_grounded_sam(input_image, text_prompt, box_threshold, text_threshold):
     )
 
     return boxes.xyxy
-
 
 def generate_mask_from_image(image, mask_model, extras):
     if image is None:

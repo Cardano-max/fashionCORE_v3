@@ -13,7 +13,6 @@ args_parser.parser.add_argument("--language", type=str, default='default',
                                 help="Translate UI using json files in [language] folder. "
                                   "For example, [--language example] will use [language/example.json] for translation.")
 
-# For example, https://github.com/lllyasviel/Fooocus/issues/849
 args_parser.parser.add_argument("--disable-offload-from-vram", action="store_true",
                                 help="Force loading models to vram when the unload can be avoided. "
                                   "Some Mac users may need this.")
