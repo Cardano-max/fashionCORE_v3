@@ -29,6 +29,7 @@ def virtual_tryon_pipeline(clothes_image, person_image):
     # Step 3: Prepare inputs for the main generation process
     seed = random.randint(constants.MIN_SEED, constants.MAX_SEED)
     task = AsyncTask([
+        True,  # generate_image_grid
         "",  # prompt
         "",  # negative_prompt
         False,  # translate_prompts
@@ -43,7 +44,7 @@ def virtual_tryon_pipeline(clothes_image, person_image):
         modules.config.default_base_model_name,  # base_model_name
         modules.config.default_refiner_model_name,  # refiner_model_name
         modules.config.default_refiner_switch,  # refiner_switch
-        modules.config.default_loras,  # loras
+        *[item for sublist in modules.config.default_loras for item in sublist],  # loras
         True,  # input_image_checkbox
         "ip",  # current_tab
         flags.disabled,  # uov_method
