@@ -13,10 +13,12 @@ import modules.flags as flags
 import modules.gradio_hijack as grh
 import modules.style_sorter as style_sorter
 import modules.meta_parser
+from modules.rembg import rembg_run
 from modules.load_online import load_demos_names, load_tools_names, load_demos_url, load_tools_url
 import args_manager
 import copy
 import launch
+from modules.util import HWC3, resize_image
 
 from modules.sdxl_styles import legal_style_names
 from modules.private_logger import get_current_html_path
@@ -24,15 +26,15 @@ from modules.ui_gradio_extensions import reload_javascript
 from modules.auth import auth_enabled, check_auth
 from modules.util import is_json
 
-# PHOTOPEA_MAIN_URL = "https://www.photopea.com/"
-# PHOTOPEA_IFRAME_ID = "webui-photopea-iframe"
-# PHOTOPEA_IFRAME_HEIGHT = 684
-# PHOTOPEA_IFRAME_WIDTH = "100%"
-# PHOTOPEA_IFRAME_LOADED_EVENT = "onPhotopeaLoaded"
+PHOTOPEA_MAIN_URL = "https://www.photopea.com/"
+PHOTOPEA_IFRAME_ID = "webui-photopea-iframe"
+PHOTOPEA_IFRAME_HEIGHT = 684
+PHOTOPEA_IFRAME_WIDTH = "100%"
+PHOTOPEA_IFRAME_LOADED_EVENT = "onPhotopeaLoaded"
 
 
-# def get_photopea_url_params():
-#     return "#%7B%22resources%22:%5B%22data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIAAQMAAADOtka5AAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAANQTFRF////p8QbyAAAADZJREFUeJztwQEBAAAAgiD/r25IQAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfBuCAAAB0niJ8AAAAABJRU5ErkJggg==%22%5D%7D"
+def get_photopea_url_params():
+    return "#%7B%22resources%22:%5B%22data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIAAQMAAADOtka5AAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAANQTFRF////p8QbyAAAADZJREFUeJztwQEBAAAAgiD/r25IQAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfBuCAAAB0niJ8AAAAABJRU5ErkJggg==%22%5D%7D"
 
 
 def get_task(*args):
@@ -40,6 +42,114 @@ def get_task(*args):
     args.pop(0)
 
     return worker.AsyncTask(args=args)
+
+def virtual_tryon_clicked(clothing_img, person_img):
+    clothing_img = HWC3(clothing_img)
+    person_img = HWC3(person_img)
+
+    # Remove background from clothing image
+    clothing_no_bg = rembg_run(clothing_img)
+
+    # Generate mask for person image
+    inpaint_worker.current_task = inpaint_worker.InpaintWorker(
+        image=person_img,
+        mask=None,
+        use_fill=True,
+        k=1.0
+    )
+    inpaint_worker.current_task.load_sam_model('sam_vit_b_01ec64')
+    mask = inpaint_worker.current_task.generate_mask("Clothes", box_threshold=0.3, text_threshold=0.25)
+
+    # Resize images to match aspect ratio
+    width, height = 1152, 896
+    clothing_no_bg = resize_image(clothing_no_bg, width=width, height=height)
+    person_img = resize_image(person_img, width=width, height=height)
+    mask = resize_image(HWC3(mask), width=width, height=height)[:,:,0]
+
+    # Prepare inputs for the pipeline
+    task = worker.AsyncTask(args=[
+        "person wearing new clothes, realistic, high quality",  # prompt
+        "distorted, low quality, unrealistic",  # negative prompt
+        False,  # translate_prompts
+        ["Fooocus V2", "Fooocus Enhance", "Fooocus Sharp"],  # style_selections
+        flags.Performance.QUALITY,  # performance_selection
+        f"{width}*{height}",  # aspect_ratios_selection
+        1,  # image_number
+        "png",  # output_format
+        random.randint(0, 2**32 - 1),  # image_seed
+        2.0,  # sharpness
+        7.0,  # guidance_scale
+        "FluentlyXL-v4.safetensors",  # base_model
+        "None",  # refiner_model
+        0.5,  # refiner_switch
+        ["None", 1.0] * flags.lora_count,  # loras
+        True,  # input_image_checkbox
+        "ip",  # current_tab
+        "disabled",  # uov_method
+        None,  # uov_input_image
+        [],  # outpaint_selections
+        {"image": person_img, "mask": mask},  # inpaint_input_image
+        "",  # inpaint_additional_prompt
+        None,  # inpaint_mask_image_upload
+        False,  # disable_preview
+        True,  # disable_intermediate_results
+        False,  # black_out_nsfw
+        1.5,  # adm_scaler_positive
+        0.8,  # adm_scaler_negative
+        0.3,  # adm_scaler_end
+        7.0,  # adaptive_cfg
+        "dpmpp_2m_sde_gpu",  # sampler_name
+        "karras",  # scheduler_name
+        -1,  # overwrite_step
+        -1,  # overwrite_switch
+        -1,  # overwrite_width
+        -1,  # overwrite_height
+        -1,  # overwrite_vary_strength
+        -1,  # overwrite_upscale_strength
+        False,  # mixing_image_prompt_and_vary_upscale
+        True,  # mixing_image_prompt_and_inpaint
+        False,  # debugging_cn_preprocessor
+        False,  # skipping_cn_preprocessor
+        64,  # canny_low_threshold
+        128,  # canny_high_threshold
+        "joint",  # refiner_swap_method
+        0.25,  # controlnet_softness
+        False,  # freeu_enabled
+        1.01,  # freeu_b1
+        1.02,  # freeu_b2
+        0.99,  # freeu_s1
+        0.95,  # freeu_s2
+        False,  # debugging_inpaint_preprocessor
+        False,  # inpaint_disable_initial_latent
+        "v2.6",  # inpaint_engine
+        1.0,  # inpaint_strength
+        0.618,  # inpaint_respective_field
+        False,  # inpaint_mask_upload_checkbox
+        False,  # invert_mask_checkbox
+        0,  # inpaint_erode_or_dilate
+        flags.MetadataScheme.FOOOCUS,  # metadata_scheme
+        clothing_no_bg,  # cn_img1
+        0.86,  # cn_stop1
+        0.97,  # cn_weight1
+        flags.cn_ip,  # cn_type1
+        None, None, None, flags.cn_ip,  # Other ControlNet inputs (not used)
+        None, None, None, flags.cn_ip,
+        None, None, None, flags.cn_ip,
+    ])
+
+    worker.async_tasks.append(task)
+
+    while len(task.yields) == 0:
+        time.sleep(0.01)
+    
+    result = task.yields[0]
+    return result
+
+generate_tryon_button.click(
+    virtual_tryon_clicked,
+    inputs=[clothing_image, person_image],
+    outputs=[result_image]
+)
 
 def generate_clicked(task):
     import ldm_patched.modules.model_management as model_management
@@ -127,24 +237,22 @@ with shared.gradio_root:
                                      elem_id='final_gallery',
                                      value=["assets/favicon.png"],
                                      preview=True)
-            # with gr.Tab("Photopea"):
-            #     with gr.Row():
-            #         photopea = gr.HTML(
-            #             f"""<iframe id="{PHOTOPEA_IFRAME_ID}" 
-            #             src = "{PHOTOPEA_MAIN_URL}{get_photopea_url_params()}" 
-            #             width = "{PHOTOPEA_IFRAME_WIDTH}" 
-            #             height = "{PHOTOPEA_IFRAME_HEIGHT}"
-            #             onload = "{PHOTOPEA_IFRAME_LOADED_EVENT}(this)">"""
-            #         )
-            #     gr.Markdown("Powered by [🦜 Photopea API](https://www.photopea.com/api)")
-            # with gr.Tab("rembg"):
-            #     with gr.Column(scale=1):
-            #         rembg_input = grh.Image(label='Drag above image to here', source='upload', type='filepath', scale=20)
-            #         rembg_button = gr.Button(value="Remove Background", interactive=True, scale=1)
-            #     with gr.Column(scale=3):
-            #         rembg_output = grh.Image(label='rembg Output', interactive=False, height=380)
-            #     gr.Markdown("Powered by [🪄 rembg 2.0.53](https://github.com/danielgatis/rembg/releases/tag/v2.0.53)")
-            # rembg_button.click(rembg_run, inputs=rembg_input, outputs=rembg_output, show_progress="full") 
+            with gr.Tab("Virtual Try-On"):
+                with gr.Row():
+                    with gr.Column():
+                        clothing_image = grh.Image(label="Clothing Image", type="numpy")
+                        person_image = grh.Image(label="Person Image", type="numpy")
+                    with gr.Column():
+                        result_image = grh.Image(label="Result", type="numpy")
+                generate_tryon_button = gr.Button(label="Generate Try-On", variant="primary")
+            with gr.Tab("rembg"):
+                with gr.Column(scale=1):
+                    rembg_input = grh.Image(label='Drag above image to here', source='upload', type='filepath', scale=20)
+                    rembg_button = gr.Button(value="Remove Background", interactive=True, scale=1)
+                with gr.Column(scale=3):
+                    rembg_output = grh.Image(label='rembg Output', interactive=False, height=380)
+                gr.Markdown("Powered by [🪄 rembg 2.0.53](https://github.com/danielgatis/rembg/releases/tag/v2.0.53)")
+            rembg_button.click(rembg_run, inputs=rembg_input, outputs=rembg_output, show_progress="full") 
             with gr.Tab("Online"):
                 with gr.Tab("Demos"):
                     for name in load_demos_names():
@@ -194,13 +302,13 @@ with shared.gradio_root:
                
             with gr.Row(visible=False) as image_input_panel:
                 with gr.Tabs():
-                    # with gr.TabItem(label='Upscale or Variation') as uov_tab:
-                    #     with gr.Row():
-                    #         with gr.Column():
-                    #             uov_input_image = grh.Image(label='Drag above image to here', source='upload', type='numpy')
-                    #         with gr.Column():
-                    #             uov_method = gr.Radio(label='Upscale or Variation:', choices=flags.uov_list, value=flags.disabled)
-                    #             gr.HTML('<a href="https://github.com/lllyasviel/Fooocus/discussions/390" target="_blank">\U0001F4D4 Document</a>')
+                    with gr.TabItem(label='Upscale or Variation') as uov_tab:
+                        with gr.Row():
+                            with gr.Column():
+                                uov_input_image = grh.Image(label='Drag above image to here', source='upload', type='numpy')
+                            with gr.Column():
+                                uov_method = gr.Radio(label='Upscale or Variation:', choices=flags.uov_list, value=flags.disabled)
+                                gr.HTML('<a href="https://github.com/lllyasviel/Fooocus/discussions/390" target="_blank">\U0001F4D4 Document</a>')
                     with gr.TabItem(label='Image Prompt') as ip_tab:
                         with gr.Row():
                             ip_images = []
@@ -309,37 +417,37 @@ with shared.gradio_root:
                                                           outputs=[inpaint_mask_cloth_category, inpaint_mask_sam_prompt_text, inpaint_mask_advanced_options],
                                                           queue=False, show_progress=False)
 
-                    # with gr.TabItem(label='Describe') as desc_tab:
-                    #     with gr.Row():
-                    #         with gr.Column():
-                    #             desc_input_image = grh.Image(label='Drag any image to here', source='upload', type='numpy')
-                    #         with gr.Column():
-                    #             desc_method = gr.Radio(
-                    #                 label='Content Type',
-                    #                 choices=[flags.desc_type_photo, flags.desc_type_anime],
-                    #                 value=flags.desc_type_photo)
-                    #             desc_btn = gr.Button(value='Describe this Image into Prompt')
-                    #             gr.HTML('<a href="https://github.com/lllyasviel/Fooocus/discussions/1363" target="_blank">\U0001F4D4 Document</a>')
-                    # with gr.TabItem(label='Metadata') as load_tab:
-                    #     with gr.Column():
-                    #         metadata_input_image = grh.Image(label='Drag any image generated by Fooocus here', source='upload', type='filepath')
-                    #         metadata_json = gr.JSON(label='Metadata')
-                    #         metadata_import_button = gr.Button(value='Apply Metadata')
+                    with gr.TabItem(label='Describe') as desc_tab:
+                        with gr.Row():
+                            with gr.Column():
+                                desc_input_image = grh.Image(label='Drag any image to here', source='upload', type='numpy')
+                            with gr.Column():
+                                desc_method = gr.Radio(
+                                    label='Content Type',
+                                    choices=[flags.desc_type_photo, flags.desc_type_anime],
+                                    value=flags.desc_type_photo)
+                                desc_btn = gr.Button(value='Describe this Image into Prompt')
+                                gr.HTML('<a href="https://github.com/lllyasviel/Fooocus/discussions/1363" target="_blank">\U0001F4D4 Document</a>')
+                    with gr.TabItem(label='Metadata') as load_tab:
+                        with gr.Column():
+                            metadata_input_image = grh.Image(label='Drag any image generated by Fooocus here', source='upload', type='filepath')
+                            metadata_json = gr.JSON(label='Metadata')
+                            metadata_import_button = gr.Button(value='Apply Metadata')
 
-                    #     def trigger_metadata_preview(filepath):
-                    #         parameters, metadata_scheme = modules.meta_parser.read_info_from_image(filepath)
+                        def trigger_metadata_preview(filepath):
+                            parameters, metadata_scheme = modules.meta_parser.read_info_from_image(filepath)
 
-                    #         results = {}
-                    #         if parameters is not None:
-                    #             results['parameters'] = parameters
+                            results = {}
+                            if parameters is not None:
+                                results['parameters'] = parameters
 
-                    #         if isinstance(metadata_scheme, flags.MetadataScheme):
-                    #             results['metadata_scheme'] = metadata_scheme.value
+                            if isinstance(metadata_scheme, flags.MetadataScheme):
+                                results['metadata_scheme'] = metadata_scheme.value
 
-                    #         return results
+                            return results
 
-                    #     metadata_input_image.upload(trigger_metadata_preview, inputs=metadata_input_image,
-                    #                                 outputs=metadata_json, queue=False, show_progress=True)
+                        metadata_input_image.upload(trigger_metadata_preview, inputs=metadata_input_image,
+                                                    outputs=metadata_json, queue=False, show_progress=True)
 
             switch_js = "(x) => {if(x){viewer_to_bottom(100);viewer_to_bottom(500);}else{viewer_to_top();} return x;}"
             down_js = "() => {viewer_to_bottom();}"
@@ -349,10 +457,10 @@ with shared.gradio_root:
             ip_advanced.change(lambda: None, queue=False, show_progress=False, _js=down_js)
 
             current_tab = gr.Textbox(value='uov', visible=False)
-            # uov_tab.select(lambda: 'uov', outputs=current_tab, queue=False, _js=down_js, show_progress=False)
+            uov_tab.select(lambda: 'uov', outputs=current_tab, queue=False, _js=down_js, show_progress=False)
             inpaint_tab.select(lambda: 'inpaint', outputs=current_tab, queue=False, _js=down_js, show_progress=False)
             ip_tab.select(lambda: 'ip', outputs=current_tab, queue=False, _js=down_js, show_progress=False)
-            # desc_tab.select(lambda: 'desc', outputs=current_tab, queue=False, _js=down_js, show_progress=False)
+            desc_tab.select(lambda: 'desc', outputs=current_tab, queue=False, _js=down_js, show_progress=False)
 
         with gr.Column(scale=1, visible=modules.config.default_advanced_checkbox) as advanced_column:
             with gr.Tab(label='Settings'):
@@ -460,7 +568,7 @@ with shared.gradio_root:
                                                        show_progress=False).then(
                     lambda: None, _js='()=>{refresh_style_localization();}')
 
-            with gr.Column(visible=False):
+            with gr.Tab(label='Models'):
                 with gr.Group():
                     with gr.Row():
                         base_model = gr.Dropdown(label='Base Model (SDXL only)', choices=modules.config.model_filenames, value=modules.config.default_base_model_name, show_label=True)
@@ -663,12 +771,12 @@ with shared.gradio_root:
                         freeu_s2 = gr.Slider(label='S2', minimum=0, maximum=4, step=0.01, value=0.95)
                         freeu_ctrls = [freeu_enabled, freeu_b1, freeu_b2, freeu_s1, freeu_s2]
 
-                # def dev_mode_checked(r):
-                #     return gr.update(visible=r)
+                def dev_mode_checked(r):
+                    return gr.update(visible=r)
 
 
-                # dev_mode.change(dev_mode_checked, inputs=[dev_mode], outputs=[dev_tools],
-                #                 queue=False, show_progress=False)
+                dev_mode.change(dev_mode_checked, inputs=[dev_mode], outputs=[dev_tools],
+                                queue=False, show_progress=False)
 
                 def model_refresh_clicked():
                     modules.config.update_all_model_names()
@@ -779,7 +887,7 @@ with shared.gradio_root:
 
         ctrls += [base_model, refiner_model, refiner_switch] + lora_ctrls
         ctrls += [input_image_checkbox, current_tab]
-        # ctrls += [uov_method, uov_input_image]
+        ctrls += [uov_method, uov_input_image]
         ctrls += [outpaint_selections, inpaint_input_image, inpaint_additional_prompt, inpaint_mask_image]
         ctrls += [disable_preview, disable_intermediate_results, black_out_nsfw]
         ctrls += [adm_scaler_positive, adm_scaler_negative, adm_scaler_end, adaptive_cfg]
@@ -824,8 +932,8 @@ with shared.gradio_root:
 
             return modules.meta_parser.load_parameter_button_click(parsed_parameters, state_is_generating)
 
-        # metadata_import_button.click(trigger_metadata_import, inputs=[metadata_input_image, state_is_generating], outputs=load_data_outputs, queue=False, show_progress=True) \
-        #     .then(style_sorter.sort_styles, inputs=style_selections, outputs=style_selections, queue=False, show_progress=False)
+        metadata_import_button.click(trigger_metadata_import, inputs=[metadata_input_image, state_is_generating], outputs=load_data_outputs, queue=False, show_progress=True) \
+            .then(style_sorter.sort_styles, inputs=style_selections, outputs=style_selections, queue=False, show_progress=False)
 
         generate_button.click(lambda: (gr.update(visible=True, interactive=True), gr.update(visible=True, interactive=True), gr.update(visible=False, interactive=False), [], True),
                               outputs=[stop_button, skip_button, generate_button, gallery, state_is_generating]) \
@@ -846,8 +954,8 @@ with shared.gradio_root:
                 return default_interrogator_anime(img), ["Fooocus V2", "Fooocus Masterpiece"]
             return mode, ["Fooocus V2"]
 
-        # desc_btn.click(trigger_describe, inputs=[desc_method, desc_input_image],
-        #                outputs=[prompt, style_selections], show_progress=True, queue=True)
+        desc_btn.click(trigger_describe, inputs=[desc_method, desc_input_image],
+                       outputs=[prompt, style_selections], show_progress=True, queue=True)
 
         def trigger_uov_describe(mode, img, prompt):
             # keep prompt if not empty
@@ -855,8 +963,8 @@ with shared.gradio_root:
                 return trigger_describe(mode, img)
             return gr.update(), gr.update()
 
-        # uov_input_image.upload(trigger_uov_describe, inputs=[desc_method, uov_input_image, prompt],
-        #                outputs=[prompt, style_selections], show_progress=True, queue=True)
+        uov_input_image.upload(trigger_uov_describe, inputs=[desc_method, uov_input_image, prompt],
+                       outputs=[prompt, style_selections], show_progress=True, queue=True)
 
 def dump_default_english_config():
     from modules.localization import dump_english_config
