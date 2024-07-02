@@ -255,19 +255,18 @@ with shared.gradio_root:
                                      preview=True)
 
             # Add this part to your existing gradio interface
-            with shared.gradio_root:
-                with gr.Tab("Virtual Try-On"):
-                    with gr.Row():
-                        clothes_input = gr.Image(label="Clothes Image", source='upload', type='numpy')
-                        person_input = gr.Image(label="Person Image", source='upload', type='numpy')
-                    try_on_button = gr.Button("Try On")
-                    try_on_output = gr.Gallery(label="Try-On Result")
+            with gr.Tab("Virtual Try-On"):
+                with gr.Row():
+                    clothes_input = gr.Image(label="Clothes Image", source='upload', type='numpy')
+                    person_input = gr.Image(label="Person Image", source='upload', type='numpy')
+                try_on_button = gr.Button("Try On")
+                try_on_output = gr.Gallery(label="Try-On Result")
 
-                    try_on_button.click(
-                        virtual_try_on,
-                        inputs=[clothes_input, person_input],
-                        outputs=[try_on_output]
-                    )
+                try_on_button.click(
+                    virtual_try_on,
+                    inputs=[clothes_input, person_input],
+                    outputs=[try_on_output]
+                )
 
 
 
