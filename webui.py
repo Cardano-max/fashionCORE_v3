@@ -81,8 +81,14 @@ def virtual_try_on(clothes_image, person_image):
         # Mixing Image Prompt and Inpaint
         mixing_image_prompt_and_inpaint.update(value=True)
 
+        # Prepare LoRA arguments
+        loras = []
+        for lora in modules.config.default_loras:
+            loras.append(lora[0])
+            loras.append(lora[1])
+
         # Generating the final image
-        task = AsyncTask([
+        args = [
             True,  # generate_image_grid
             "A person wearing the clothes from the reference image",  # prompt
             "Unrealistic, blurry, low quality",  # negative_prompt
@@ -98,6 +104,10 @@ def virtual_try_on(clothes_image, person_image):
             modules.config.default_base_model_name,  # base_model_name
             modules.config.default_refiner_model_name,  # refiner_model_name
             modules.config.default_refiner_switch,  # refiner_switch
+        ] + loras + [
+            True,  # input_image_checkbox
+            "inpaint",  # current_tab
+            flags.disabled,  # uov_method
             clothes_image,  # uov_input_image
             [],  # outpaint_selections
             {'image': person_image, 'mask': mask},  # inpaint_input_image
@@ -139,7 +149,9 @@ def virtual_try_on(clothes_image, person_image):
             True,  # inpaint_mask_upload_checkbox
             False,  # invert_mask_checkbox
             0,  # inpaint_erode_or_dilate
-        ])
+        ]
+
+        task = AsyncTask(args)
         worker.async_tasks.append(task)
 
         # Wait for the task to complete
@@ -266,6 +278,7 @@ with shared.gradio_root:
                     inputs=[clothes_input, person_input],
                     outputs=[try_on_output]
                 )
+
 
 
 
