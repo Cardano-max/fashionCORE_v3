@@ -18,6 +18,9 @@ from modules.load_online import load_demos_names, load_tools_names, load_demos_u
 import args_manager
 import copy
 import launch
+import cv2
+import numpy as np
+from PIL import Image
 
 from modules.sdxl_styles import legal_style_names
 from modules.private_logger import get_current_html_path
@@ -25,25 +28,8 @@ from modules.ui_gradio_extensions import reload_javascript
 from modules.auth import auth_enabled, check_auth
 from modules.util import is_json
 
-PHOTOPEA_MAIN_URL = "https://www.photopea.com/"
-PHOTOPEA_IFRAME_ID = "webui-photopea-iframe"
-PHOTOPEA_IFRAME_HEIGHT = 684
-PHOTOPEA_IFRAME_WIDTH = "100%"
-PHOTOPEA_IFRAME_LOADED_EVENT = "onPhotopeaLoaded"
-
-
 from extras.inpaint_mask import generate_mask_from_image
-import numpy as np
-import random
-import time
-import gradio as gr
-from modules.async_worker import AsyncTask
-import modules.flags as flags
-import modules.config
-import modules.constants as constants
-import args_manager
 import traceback
-
 
 def virtual_try_on(clothes_image, person_image):
     try:
@@ -149,11 +135,11 @@ def virtual_try_on(clothes_image, person_image):
             True,  # inpaint_mask_upload_checkbox
             False,  # invert_mask_checkbox
             0,  # inpaint_erode_or_dilate
-            save_metadata_to_images,  # save_metadata_to_images
-            modules.config.default_metadata_scheme,  # metadata_scheme (use string directly)
+            modules.config.default_save_metadata_to_images,  # save_metadata_to_images
+            modules.config.default_metadata_scheme,  # metadata_scheme
         ]
 
-        task = AsyncTask(args)
+        task = worker.AsyncTask(args)
         worker.async_tasks.append(task)
 
         # Wait for the task to complete
@@ -268,18 +254,20 @@ with shared.gradio_root:
                                      value=["assets/favicon.png"],
                                      preview=True)
 
-            with gr.Tab("Virtual Try-On"):
-                with gr.Row():
-                    clothes_input = gr.Image(label="Clothes Image", source='upload', type='numpy')
-                    person_input = gr.Image(label="Person Image", source='upload', type='numpy')
-                try_on_button = gr.Button("Try On")
-                try_on_output = gr.Gallery(label="Try-On Result")
+            # Add this part to your existing gradio interface
+            with shared.gradio_root:
+                with gr.Tab("Virtual Try-On"):
+                    with gr.Row():
+                        clothes_input = gr.Image(label="Clothes Image", source='upload', type='numpy')
+                        person_input = gr.Image(label="Person Image", source='upload', type='numpy')
+                    try_on_button = gr.Button("Try On")
+                    try_on_output = gr.Gallery(label="Try-On Result")
 
-                try_on_button.click(
-                    virtual_try_on,
-                    inputs=[clothes_input, person_input],
-                    outputs=[try_on_output]
-                )
+                    try_on_button.click(
+                        virtual_try_on,
+                        inputs=[clothes_input, person_input],
+                        outputs=[try_on_output]
+                    )
 
 
 
