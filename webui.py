@@ -149,6 +149,8 @@ def virtual_try_on(clothes_image, person_image):
             True,  # inpaint_mask_upload_checkbox
             False,  # invert_mask_checkbox
             0,  # inpaint_erode_or_dilate
+            save_metadata_to_images,  # save_metadata_to_images
+            modules.config.default_metadata_scheme.value,  # metadata_scheme
         ]
 
         task = AsyncTask(args)
