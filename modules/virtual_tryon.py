@@ -9,9 +9,19 @@ from modules.util import HWC3
 from extras.inpaint_mask import generate_mask_from_image
 import modules.async_worker as worker
 import time
+import logging
+import traceback
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def virtual_tryon(person_image, clothes_image):
     try:
+        logger.info("Starting virtual try-on process")
+        
+        if person_image is None or clothes_image is None:
+            raise ValueError("Both person and clothes images are required")
+        
         # Step 1: Remove background from clothes image
         clothes_no_bg = rembg_run(clothes_image)
         
@@ -59,10 +69,6 @@ def virtual_tryon(person_image, clothes_image):
             {'image': person_image, 'mask': inpaint_mask},  # inpaint_input_image
             '',  # inpaint_additional_prompt
             None,  # inpaint_mask_image_upload
-        ]
-        
-        # Add additional parameters
-        inputs.extend([
             False, False, False,  # disable_preview, disable_intermediate_results, black_out_nsfw
             1.5, 0.8, 0.3,  # adm_scaler_positive, adm_scaler_negative, adm_scaler_end
             7.0,  # adaptive_cfg
@@ -76,7 +82,7 @@ def virtual_tryon(person_image, clothes_image):
             flags.refiner_swap_method,
             0.25,  # controlnet_softness
             False, 1.01, 1.02, 0.99, 0.95,  # freeu_enabled, freeu_b1, freeu_b2, freeu_s1, freeu_s2
-        ])
+        ]
         
         # Step 6: Create and process the task
         task = worker.AsyncTask(args=inputs)
@@ -92,10 +98,12 @@ def virtual_tryon(person_image, clothes_image):
             if y[0] == 'results':
                 final_results = y[1]
         
+        logger.info("Virtual try-on process completed successfully")
         return final_results[0] if final_results else None
     except Exception as e:
-        print(f"Error in virtual try-on process: {str(e)}")
-        raise
+        logger.error(f"Error in virtual try-on process: {str(e)}")
+        logger.debug(traceback.format_exc())
+        return gr.update(value=None), gr.update(value=f"Error: {str(e)}")
 
 def create_virtual_tryon_interface():
     with gr.Blocks() as virtual_tryon_interface:
@@ -104,7 +112,10 @@ def create_virtual_tryon_interface():
             clothes_input = gr.Image(label="Upload Clothes Image", type="numpy")
         generate_btn = gr.Button("Generate Virtual Try-On")
         output_image = gr.Image(label="Result")
+        error_output = gr.Textbox(label="Error", visible=False)
 
-        generate_btn.click(virtual_tryon, inputs=[person_input, clothes_input], outputs=output_image)
+        generate_btn.click(virtual_tryon, 
+                           inputs=[person_input, clothes_input], 
+                           outputs=[output_image, error_output])
     
     return virtual_tryon_interface
