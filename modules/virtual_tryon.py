@@ -3,14 +3,11 @@
 import gradio as gr
 import modules.config
 import modules.flags as flags
-import modules.html
-from modules.rembg import rembg_run
 from modules.util import HWC3
 from extras.inpaint_mask import generate_mask_from_image
 import modules.async_worker as worker
 import time
 import logging
-import traceback
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,15 +19,7 @@ def virtual_tryon(person_image, clothes_image):
         if person_image is None or clothes_image is None:
             raise ValueError("Both person and clothes images are required")
         
-        # Step 1: Remove background from clothes image
-        clothes_no_bg = rembg_run(clothes_image)
-        
-        # Step 2: Set up Image Prompt
-        ip_image = HWC3(clothes_no_bg)
-        ip_stop = 0.6  # Default value
-        ip_weight = 0.6  # Default value
-        
-        # Step 3: Generate mask for person image
+        # Generate mask for person image using SAM
         mask_extras = {
             'sam_model': 'sam_vit_b_01ec64',
             'sam_prompt_text': 'Clothes',
@@ -40,11 +29,11 @@ def virtual_tryon(person_image, clothes_image):
         }
         inpaint_mask = generate_mask_from_image(person_image, 'sam', mask_extras)
         
-        # Step 4: Set up parameters
+        # Set up parameters
         prompt = "A person wearing the clothes from the reference image"
         negative_prompt = "Unrealistic, blurry, low quality"
         
-        # Step 5: Prepare inputs for the generation function
+        # Prepare inputs for the generation function
         inputs = [
             prompt,
             negative_prompt,
@@ -62,13 +51,13 @@ def virtual_tryon(person_image, clothes_image):
             0.8,  # refiner_switch
             modules.config.default_loras,
             True,  # input_image_checkbox
-            'ip',  # current_tab
+            'inpaint',  # current_tab
             flags.disabled,  # uov_method
-            ip_image,
+            clothes_image,  # uov_input_image
             [],  # outpaint_selections
             {'image': person_image, 'mask': inpaint_mask},  # inpaint_input_image
             '',  # inpaint_additional_prompt
-            None,  # inpaint_mask_image_upload
+            inpaint_mask,  # inpaint_mask_image_upload
             False, False, False,  # disable_preview, disable_intermediate_results, black_out_nsfw
             1.5, 0.8, 0.3,  # adm_scaler_positive, adm_scaler_negative, adm_scaler_end
             7.0,  # adaptive_cfg
@@ -82,9 +71,12 @@ def virtual_tryon(person_image, clothes_image):
             flags.refiner_swap_method,
             0.25,  # controlnet_softness
             False, 1.01, 1.02, 0.99, 0.95,  # freeu_enabled, freeu_b1, freeu_b2, freeu_s1, freeu_s2
+            True,  # inpaint_mask_upload_checkbox
+            False,  # invert_mask_checkbox
+            0,  # inpaint_erode_or_dilate
         ]
         
-        # Step 6: Create and process the task
+        # Create and process the task
         task = worker.AsyncTask(args=inputs)
         worker.async_tasks.append(task)
         
@@ -99,11 +91,10 @@ def virtual_tryon(person_image, clothes_image):
                 final_results = y[1]
         
         logger.info("Virtual try-on process completed successfully")
-        return final_results[0] if final_results else None
+        return final_results[0] if final_results else None, ""
     except Exception as e:
         logger.error(f"Error in virtual try-on process: {str(e)}")
-        logger.debug(traceback.format_exc())
-        return gr.update(value=None), gr.update(value=f"Error: {str(e)}")
+        return None, f"Error: {str(e)}"
 
 def create_virtual_tryon_interface():
     with gr.Blocks() as virtual_tryon_interface:
@@ -112,7 +103,7 @@ def create_virtual_tryon_interface():
             clothes_input = gr.Image(label="Upload Clothes Image", type="numpy")
         generate_btn = gr.Button("Generate Virtual Try-On")
         output_image = gr.Image(label="Result")
-        error_output = gr.Textbox(label="Error", visible=False)
+        error_output = gr.Textbox(label="Error", visible=True)
 
         generate_btn.click(virtual_tryon, 
                            inputs=[person_input, clothes_input], 
