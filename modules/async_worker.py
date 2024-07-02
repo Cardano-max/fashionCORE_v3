@@ -201,7 +201,7 @@ def worker():
         inpaint_erode_or_dilate = args.pop()
 
         save_metadata_to_images = args.pop() if not args_manager.args.disable_metadata else False
-        metadata_scheme = MetadataScheme(args.pop()) if not args_manager.args.disable_metadata else MetadataScheme.FOOOCUS
+        metadata_scheme = args.pop() if not args_manager.args.disable_metadata else MetadataScheme.FOOOCUS.value
 
         cn_tasks = {x: [] for x in flags.ip_list}
         for _ in range(flags.controlnet_image_count):
