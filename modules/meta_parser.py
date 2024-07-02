@@ -16,7 +16,7 @@ from modules.util import quote, unquote, extract_styles_from_prompt, is_json, ca
 
 re_param_code = r'\s*(\w[\w \-/]+):\s*("(?:\\.|[^\\"])+"|[^,]*)(?:,|$)'
 re_param = re.compile(re_param_code)
-re_imagesize = re.compile(r"^(\d+)x(\d+)$")
+re_param = re.compile(r"^(\d+)x(\d+)$")
 
 hash_cache = {}
 
@@ -97,7 +97,6 @@ def get_steps(key: str, fallback: str | None, source_dict: dict, results: list, 
         h = source_dict.get(key, source_dict.get(fallback, default))
         assert h is not None
         h = int(h)
-        # if not in steps or in steps and performance is not the same
         if h not in iter(Steps) or Steps(h).name.casefold() != source_dict.get('performance', '').replace(' ', '_').casefold():
             results.append(h)
             return
@@ -338,7 +337,6 @@ class A1111MetadataParser(MetadataParser):
             except Exception:
                 print(f"Error parsing \"{k}: {v}\"")
 
-        # workaround for multiline prompts
         if 'raw_prompt' in data:
             data['prompt'] = data['raw_prompt']
             raw_prompt = data['raw_prompt'].replace("\n", ', ')
@@ -350,7 +348,6 @@ class A1111MetadataParser(MetadataParser):
 
         data['styles'] = str(found_styles)
 
-        # try to load performance based on steps, fallback for direct A1111 imports
         if 'steps' in data and 'performance' not in data:
             try:
                 data['performance'] = Performance[Steps(int(data['steps'])).name].value
@@ -359,7 +356,6 @@ class A1111MetadataParser(MetadataParser):
 
         if 'sampler' in data:
             data['sampler'] = data['sampler'].replace(' Karras', '')
-            # get key
             for k, v in SAMPLERS.items():
                 if v == data['sampler']:
                     data['sampler'] = k
@@ -411,7 +407,6 @@ class A1111MetadataParser(MetadataParser):
 
             self.fooocus_to_a1111['performance']: data['performance'],
             self.fooocus_to_a1111['scheduler']: scheduler,
-            # workaround for multiline prompts
             self.fooocus_to_a1111['raw_prompt']: self.raw_prompt,
             self.fooocus_to_a1111['raw_negative_prompt']: self.raw_negative_prompt,
         }
@@ -428,7 +423,6 @@ class A1111MetadataParser(MetadataParser):
 
         lora_hashes = []
         for index, (lora_name, lora_weight, lora_hash) in enumerate(self.loras):
-            # workaround for Fooocus not knowing LoRA name in LoRA metadata
             lora_hashes.append(f'{lora_name}: {lora_hash}: {lora_weight}')
         lora_hashes_string = ', '.join(lora_hashes)
 
@@ -472,7 +466,6 @@ class FooocusMetadataParser(MetadataParser):
 
     def parse_string(self, metadata: list) -> str:
         for li, (label, key, value) in enumerate(metadata):
-            # remove model folder paths from metadata
             if key.startswith('lora_combined_'):
                 name, weight = value.split(' : ')
                 name = Path(name).stem
@@ -532,9 +525,7 @@ def read_info_from_image(filepath) -> tuple[str | None, MetadataScheme | None]:
         parameters = json.loads(parameters)
     elif exif is not None:
         exif = image.getexif()
-        # 0x9286 = UserComment
         parameters = exif.get(0x9286, None)
-        # 0x927C = MakerNote
         metadata_scheme = exif.get(0x927C, None)
 
         if is_json(parameters):
@@ -545,7 +536,6 @@ def read_info_from_image(filepath) -> tuple[str | None, MetadataScheme | None]:
     except ValueError:
         metadata_scheme = None
 
-        # broad fallback
         if isinstance(parameters, dict):
             metadata_scheme = MetadataScheme.FOOOCUS
 
@@ -557,11 +547,7 @@ def read_info_from_image(filepath) -> tuple[str | None, MetadataScheme | None]:
 
 def get_exif(metadata: str | None, metadata_scheme: str):
     exif = Image.Exif()
-    # tags see see https://github.com/python-pillow/Pillow/blob/9.2.x/src/PIL/ExifTags.py
-    # 0x9286 = UserComment
     exif[0x9286] = metadata
-    # 0x0131 = Software
     exif[0x0131] = 'Fooocus v' + fooocus_version.version
-    # 0x927C = MakerNote
     exif[0x927C] = metadata_scheme
     return exif
