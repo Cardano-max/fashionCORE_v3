@@ -747,20 +747,20 @@ with shared.gradio_root:
 
             if mode == modules.flags.inpaint_option_detail:
                 return [
-                    gr.update(visible=True), gr.update(visible=False, value([]),
+                    gr.update(visible=True), gr.update(visible=False, value[]),
                     gr.Dataset.update(visible=True, samples=modules.config.example_inpaint_prompts),
                     False, 'None', 0.5, 0.0
                 ]
 
             if mode == modules.flags.inpaint_option_modify:
                 return [
-                    gr.update(visible(True), gr.update(visible=False, value([]),
+                    gr.update(visibleTrue), gr.update(visible=False, value[]),
                     gr.Dataset.update(visible=False, samples=modules.config.example_inpaint_prompts),
                     True, modules.config.default_inpaint_engine_version, 1.0, 0.0
                 ]
 
             return [
-                gr.update(visible=False, value=''), gr.update(visible(True),
+                gr.update(visible=False, value=''), gr.update(visibleTrue),
                 gr.Dataset.update(visible=False, samples=modules.config.example_inpaint_prompts),
                 False, modules.config.default_inpaint_engine_version, 1.0, 0.618
             ]
@@ -769,7 +769,7 @@ with shared.gradio_root:
             inpaint_additional_prompt, outpaint_selections, example_inpaint_prompts,
             inpaint_disable_initial_latent, inpaint_engine,
             inpaint_strength, inpaint_respective_field
-        ], show_progress(False, queue=False)
+        ], show_progressFalse, queue=False)
 
         ctrls = [currentTask, generate_image_grid]
         ctrls += [
