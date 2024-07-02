@@ -1,25 +1,50 @@
-# modules/virtual_tryon.py
-from modules.flags import Performance
-import gradio as gr
-import modules.config
-import modules.flags as flags
-from modules.util import HWC3
+import numpy as np
+from PIL import Image
+from modules.rembg import rembg_run
 from extras.inpaint_mask import generate_mask_from_image
-import modules.async_worker as worker
+import modules.flags as flags
+from modules.async_worker import AsyncTask
 import time
-import logging
-
-from modules.flags import Performance, inpaint_options, inpaint_engine_versions
 import modules.config
-import modules.async_worker as worker
-import time
-import logging
+import modules.constants as constants
+import random
+import args_manager
+import traceback
+import gradio as gr
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+def remove_background(image):
+    try:
+        result = rembg_run(image)
+        return result
+    except Exception as e:
+        print("Error in remove_background:", str(e))
+        traceback.print_exc()
+        return None
 
+def generate_person_mask(image):
+    try:
+        result = generate_mask_from_image(
+            image,
+            'sam',
+            {
+                'sam_prompt_text': 'Clothes',
+                'sam_model': 'sam_vit_b_01ec64',
+                'sam_quant': False,
+                'box_threshold': 0.3,
+                'text_threshold': 0.25
+            }
+        )
+        if len(result.shape) == 3:
+            result = result[:, :, 0]
+        elif len(result.shape) != 2:
+            raise ValueError(f"Unexpected mask shape: {result.shape}")
+        return result
+    except Exception as e:
+        print("Error in generate_person_mask:", str(e))
+        traceback.print_exc()
+        return None
 
-def virtual_tryon_pipeline(clothes_image, person_image):
+def virtual_tryon(clothes_image, person_image):
     try:
         # Step 1: Remove background from clothes image
         clothes_no_bg = remove_background(clothes_image)
@@ -68,8 +93,8 @@ def virtual_tryon_pipeline(clothes_image, person_image):
             {'image': person_image, 'mask': person_mask},  # inpaint_input_image
             "",  # inpaint_additional_prompt
             person_mask,  # inpaint_mask_image_upload
-            True,  # disable_preview
-            True,  # disable_intermediate_results
+            False,  # disable_preview
+            False,  # disable_intermediate_results
             modules.config.default_black_out_nsfw,  # black_out_nsfw
             1.0,  # adm_scaler_positive
             1.0,  # adm_scaler_negative
@@ -83,7 +108,7 @@ def virtual_tryon_pipeline(clothes_image, person_image):
             -1,  # overwrite_height
             -1,  # overwrite_vary_strength
             modules.config.default_overwrite_upscale,  # overwrite_upscale_strength
-            False,  # mixing_image_prompt_and_vary_upscale
+            True,  # mixing_image_prompt_and_vary_upscale
             True,  # mixing_image_prompt_and_inpaint
             False,  # debugging_cn_preprocessor
             False,  # skipping_cn_preprocessor
@@ -136,21 +161,22 @@ def virtual_tryon_pipeline(clothes_image, person_image):
 
         return task.results
     except Exception as e:
-        print("Error in virtual_tryon_pipeline:", str(e))
+        print("Error in virtual_tryon:", str(e))
         traceback.print_exc()
         return f"Error: {str(e)}"
 
 def create_virtual_tryon_interface():
     with gr.Blocks() as virtual_tryon_interface:
         with gr.Row():
-            person_input = gr.Image(label="Upload Person Image", type="numpy")
-            clothes_input = gr.Image(label="Upload Clothes Image", type="numpy")
+            clothes_input = gr.Image(label="Clothes Image", type="numpy")
+            person_input = gr.Image(label="Person Image", type="numpy")
         generate_btn = gr.Button("Generate Virtual Try-On")
-        output_image = gr.Image(label="Result")
-        error_output = gr.Textbox(label="Error", visible=True)
+        output_gallery = gr.Gallery(label="Results")
 
-        generate_btn.click(virtual_tryon, 
-                           inputs=[person_input, clothes_input], 
-                           outputs=[output_image, error_output])
-    
+        generate_btn.click(
+            virtual_tryon,
+            inputs=[clothes_input, person_input],
+            outputs=[output_gallery]
+        )
+
     return virtual_tryon_interface
