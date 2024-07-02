@@ -139,6 +139,9 @@ def worker():
         args = async_task.args
         args.reverse()
 
+        # Debugging: Print the contents of args
+        print("Arguments:", args)
+
         prompt = args.pop()
         negative_prompt = args.pop()
         translate_prompts = args.pop()
@@ -205,12 +208,16 @@ def worker():
 
         cn_tasks = {x: [] for x in flags.ip_list}
         for _ in range(flags.controlnet_image_count):
-            cn_img = args.pop()
-            cn_stop = args.pop()
-            cn_weight = args.pop()
-            cn_type = args.pop()
-            if cn_img is not None:
-                cn_tasks[cn_type].append([cn_img, cn_stop, cn_weight])
+            try:
+                cn_img = args.pop()
+                cn_stop = args.pop()
+                cn_weight = args.pop()
+                cn_type = args.pop()
+                if cn_img is not None:
+                    cn_tasks[cn_type].append([cn_img, cn_stop, cn_weight])
+            except IndexError:
+                print("Not enough elements in the args list for controlnet tasks.")
+                break
 
         outpaint_selections = [o.lower() for o in outpaint_selections]
         base_model_additional_loras = []
