@@ -79,7 +79,7 @@ def generate_clicked(task):
                 yield gr.update(visible=True), \
                     gr.update(visible=True), \
                     gr.update(visible=True, value=product), \
-                    gr.update(visible(False)
+                    gr.update(visibleFalse)
             if flag == 'finish':
                 yield gr.update(visible=False), \
                     gr.update(visible=False), \
