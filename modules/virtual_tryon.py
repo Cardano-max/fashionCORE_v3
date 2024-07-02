@@ -8,9 +8,14 @@ from extras.inpaint_mask import generate_mask_from_image
 import modules.async_worker as worker
 import time
 import logging
+from modules.flags import Performance, aspect_ratios_selection
+import modules.config
+import modules.async_worker as worker
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+from modules.flags import Performance, aspect_ratios_selection
 
 def virtual_tryon(person_image, clothes_image):
     try:
@@ -39,8 +44,8 @@ def virtual_tryon(person_image, clothes_image):
             negative_prompt,
             False,  # translate_prompts
             ["Fooocus V2", "Fooocus Enhance", "Fooocus Sharp"],  # style_selections
-            flags.Performance.QUALITY.value,
-            "1152×896",  # aspect_ratios_selection
+            Performance.QUALITY.value,
+            aspect_ratios_selection[0],  # Use the first aspect ratio from the selection
             1,  # image_number
             'png',  # output_format
             0,  # image_seed
@@ -52,7 +57,7 @@ def virtual_tryon(person_image, clothes_image):
             modules.config.default_loras,
             True,  # input_image_checkbox
             'inpaint',  # current_tab
-            flags.disabled,  # uov_method
+            'disabled',  # uov_method
             clothes_image,  # uov_input_image
             [],  # outpaint_selections
             {'image': person_image, 'mask': inpaint_mask},  # inpaint_input_image
@@ -68,7 +73,7 @@ def virtual_tryon(person_image, clothes_image):
             False, True,  # mixing_image_prompt_and_vary_upscale, mixing_image_prompt_and_inpaint
             False, False,  # debugging_cn_preprocessor, skipping_cn_preprocessor
             64, 128,  # canny_low_threshold, canny_high_threshold
-            flags.refiner_swap_method,
+            modules.config.default_refiner_switch,  # refiner_swap_method
             0.25,  # controlnet_softness
             False, 1.01, 1.02, 0.99, 0.95,  # freeu_enabled, freeu_b1, freeu_b2, freeu_s1, freeu_s2
             True,  # inpaint_mask_upload_checkbox
