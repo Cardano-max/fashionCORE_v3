@@ -140,6 +140,7 @@ with shared.gradio_root:
                     inputs=[clothes_input, person_input],
                     outputs=[try_on_output]
                 )
+
             with gr.Tab("rembg"):
                 with gr.Column(scale=1):
                     rembg_input = grh.Image(label='Drag above image to here', source='upload', type='filepath', scale=20)
@@ -877,19 +878,18 @@ shared.gradio_root.launch(
     blocked_paths=[constants.AUTH_FILENAME]
 )
 
-# New function for the Virtual Try-On process
-def virtual_try_on(image_prompt, inpaint_outpaint):
+def virtual_try_on(clothes_image, person_image):
     # Step 1: Set the advanced checkbox to always checked
     advanced_checkbox.update(value=True)
 
     # Step 2: Image Prompt settings
-    ip_image.update(value=image_prompt)
+    ip_images[0].update(value=clothes_image)
     ip_advanced.update(value=True)
-    ip_stop.update(value=0.5)  # Default value, you can change as needed
-    ip_weight.update(value=1.0)  # Default value, you can change as needed
+    ip_stops[0].update(value=0.5)  # Default value, you can change as needed
+    ip_weights[0].update(value=1.0)  # Default value, you can change as needed
 
     # Step 3: Inpaint/Outpaint settings
-    inpaint_input_image.update(value=inpaint_outpaint)
+    inpaint_input_image.update(value=person_image)
     inpaint_mask_model.update(value='sam')
     inpaint_mask_sam_prompt_text.update(value='Clothes')
     inpaint_mask_upload_checkbox.update(value=True)
@@ -901,10 +901,3 @@ def virtual_try_on(image_prompt, inpaint_outpaint):
     # Step 5: Generate the final image
     generate_button.click()
 
-# Example usage
-shared.gradio_root.add(
-    virtual_try_on,
-    inputs=[ip_image, inpaint_input_image],
-    outputs=gallery,
-    show_progress=True
-)
