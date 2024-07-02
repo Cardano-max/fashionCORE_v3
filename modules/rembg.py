@@ -1,8 +1,15 @@
-from rembg import remove
-import gradio as gr
+import numpy as np
 from PIL import Image
+import rembg
+import traceback
 
-def rembg_run(path, progress=gr.Progress(track_tqdm=True)):
-    input = Image.open(path)
-    output = remove(input)
-    return output
+def rembg_run(image):
+    try:
+        if isinstance(image, np.ndarray):
+            image = Image.fromarray(image)
+        output = rembg.remove(image)
+        return np.array(output)
+    except Exception as e:
+        print("Error in rembg_run:", str(e))
+        traceback.print_exc()
+        return None

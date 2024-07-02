@@ -18,6 +18,7 @@ from modules.load_online import load_demos_names, load_tools_names, load_demos_u
 import args_manager
 import copy
 import launch
+from modules.virtual_tryon import create_virtual_tryon_interface
 
 from modules.sdxl_styles import legal_style_names
 from modules.private_logger import get_current_html_path
@@ -31,73 +32,6 @@ PHOTOPEA_IFRAME_HEIGHT = 684
 PHOTOPEA_IFRAME_WIDTH = "100%"
 PHOTOPEA_IFRAME_LOADED_EVENT = "onPhotopeaLoaded"
 
-import gradio as gr
-import modules.config
-import modules.flags as flags
-import modules.html
-import modules.rembg as rembg
-from modules.util import HWC3
-from extras.inpaint_mask import generate_mask_from_image
-
-def virtual_tryon(person_image, clothes_image):
-    # Step 1: Remove background from clothes image
-    clothes_no_bg = rembg.rembg_run(clothes_image)
-    
-    # Step 2: Set up Image Prompt
-    ip_image = HWC3(clothes_no_bg)
-    ip_stop = 0.6  # Default value
-    ip_weight = 0.6  # Default value
-    
-    # Step 3: Generate mask for person image
-    mask_extras = {
-        'sam_model': 'sam_vit_b_01ec64',
-        'sam_prompt_text': 'Clothes',
-        'box_threshold': 0.3,
-        'text_threshold': 0.25,
-        'sam_quant': False
-    }
-    inpaint_mask = generate_mask_from_image(person_image, 'sam', mask_extras)
-    
-    # Step 4: Set up parameters
-    prompt = "A person wearing the clothes from the reference image"
-    negative_prompt = "Unrealistic, blurry, low quality"
-    performance = "Quality"
-    aspect_ratio = "1152×896"
-    styles = ["Fooocus V2", "Fooocus Enhance", "Fooocus Sharp"]
-    
-    # Step 5: Prepare inputs for the generation function
-    inputs = {
-        'prompt': prompt,
-        'negative_prompt': negative_prompt,
-        'style_selections': styles,
-        'performance_selection': performance,
-        'aspect_ratios_selection': aspect_ratio,
-        'image_number': 1,
-        'image_seed': 0,
-        'sharpness': 2.0,
-        'guidance_scale': 7.0,
-        'base_model': modules.config.default_base_model_name,
-        'refiner_model': modules.config.default_refiner_model_name,
-        'refiner_switch': 0.8,
-        'sampler_name': modules.config.default_sampler,
-        'scheduler_name': modules.config.default_scheduler,
-        'mixing_image_prompt_and_inpaint': True,
-        'mixing_image_prompt_and_vary_upscale': False,
-        'inpaint_engine': 'v2.6',
-        'inpaint_strength': 1.0,
-        'inpaint_respective_field': 1.0,
-    }
-    
-    # Add Image Prompt and Inpaint inputs
-    inputs['ip_images'] = [ip_image]
-    inputs['ip_stops'] = [ip_stop]
-    inputs['ip_weights'] = [ip_weight]
-    inputs['inpaint_input_image'] = {'image': person_image, 'mask': inpaint_mask}
-    
-    # Step 6: Call the generation function
-    result = modules.core.generate_images(**inputs)
-    
-    return result[0] if result else None
 
 
 
@@ -197,18 +131,9 @@ with shared.gradio_root:
                                      elem_id='final_gallery',
                                      value=["assets/favicon.png"],
                                      preview=True)
-            # Add this function to the Gradio interface
-            with gr.Blocks() as virtual_tryon_interface:
-                with gr.Row():
-                    person_input = gr.Image(label="Upload Person Image")
-                    clothes_input = gr.Image(label="Upload Clothes Image")
-                generate_btn = gr.Button("Generate Virtual Try-On")
-                output_image = gr.Image(label="Result")
-
-                generate_btn.click(virtual_tryon, inputs=[person_input, clothes_input], outputs=output_image)
-
-            # Add this interface to your main Gradio app
-            shared.gradio_root.add_tab("Virtual Try-On", virtual_tryon_interface)
+                                     
+            with gr.Tab("Virtual Try-On"):
+                create_virtual_tryon_interface()
 
             with gr.Tab("rembg"):
                 with gr.Column(scale=1):
