@@ -31,7 +31,30 @@ PHOTOPEA_IFRAME_HEIGHT = 684
 PHOTOPEA_IFRAME_WIDTH = "100%"
 PHOTOPEA_IFRAME_LOADED_EVENT = "onPhotopeaLoaded"
 
+def virtual_try_on(clothes_image, person_image):
+    # Step 1: Set the advanced checkbox to always checked
+    advanced_checkbox.update(value=True)
 
+    # Step 2: Image Prompt settings
+    ip_images[0].update(value=clothes_image)
+    ip_advanced.update(value=True)
+    ip_stops[0].update(value=0.5)  # Default value, you can change as needed
+    ip_weights[0].update(value=1.0)  # Default value, you can change as needed
+
+    # Step 3: Inpaint/Outpaint settings
+    inpaint_input_image.update(value=person_image)
+    inpaint_mask_model.update(value='sam')
+    inpaint_mask_sam_prompt_text.update(value='Clothes')
+    inpaint_mask_upload_checkbox.update(value=True)
+    generate_mask_button.click()
+
+    # Step 4: Mixing Image Prompt and Inpaint
+    mixing_image_prompt_and_inpaint.update(value=True)
+
+    # Step 5: Generate the final image
+    generate_button.click()
+
+    
 def get_photopea_url_params():
     return "#%7B%22resources%22:%5B%22data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIAAQMAAADOtka5AAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAANQTFRF////p8QbyAAAADZJREFUeJztwQEBAAAAgiD/r25IQAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfBuCAAAB0niJ8AAAAABJRU5ErkJggg==%22%5D%7D"
 
@@ -879,26 +902,5 @@ shared.gradio_root.launch(
     blocked_paths=[constants.AUTH_FILENAME]
 )
 
-def virtual_try_on(clothes_image, person_image):
-    # Step 1: Set the advanced checkbox to always checked
-    advanced_checkbox.update(value=True)
 
-    # Step 2: Image Prompt settings
-    ip_images[0].update(value=clothes_image)
-    ip_advanced.update(value=True)
-    ip_stops[0].update(value=0.5)  # Default value, you can change as needed
-    ip_weights[0].update(value=1.0)  # Default value, you can change as needed
-
-    # Step 3: Inpaint/Outpaint settings
-    inpaint_input_image.update(value=person_image)
-    inpaint_mask_model.update(value='sam')
-    inpaint_mask_sam_prompt_text.update(value='Clothes')
-    inpaint_mask_upload_checkbox.update(value=True)
-    generate_mask_button.click()
-
-    # Step 4: Mixing Image Prompt and Inpaint
-    mixing_image_prompt_and_inpaint.update(value=True)
-
-    # Step 5: Generate the final image
-    generate_button.click()
 
