@@ -31,30 +31,115 @@ PHOTOPEA_IFRAME_HEIGHT = 684
 PHOTOPEA_IFRAME_WIDTH = "100%"
 PHOTOPEA_IFRAME_LOADED_EVENT = "onPhotopeaLoaded"
 
+import gradio as gr
+import numpy as np
+
 def virtual_try_on(clothes_image, person_image):
-    # Step 1: Set the advanced checkbox to always checked
+    # Setting up the required inputs and configurations
     advanced_checkbox.update(value=True)
 
-    # Step 2: Image Prompt settings
+    # Image Prompt settings
     ip_images[0].update(value=clothes_image)
     ip_advanced.update(value=True)
-    ip_stops[0].update(value=0.5)  # Default value, you can change as needed
-    ip_weights[0].update(value=1.0)  # Default value, you can change as needed
+    ip_stops[0].update(value=0.5)  # Default value
+    ip_weights[0].update(value=1.0)  # Default value
 
-    # Step 3: Inpaint/Outpaint settings
+    # Inpaint/Outpaint settings
     inpaint_input_image.update(value=person_image)
     inpaint_mask_model.update(value='sam')
     inpaint_mask_sam_prompt_text.update(value='Clothes')
     inpaint_mask_upload_checkbox.update(value=True)
-    generate_mask_button.click()
 
-    # Step 4: Mixing Image Prompt and Inpaint
+    # Generate mask
+    mask = generate_mask_from_image(
+        person_image,
+        'sam',
+        {
+            'sam_prompt_text': 'Clothes',
+            'sam_model': 'sam_vit_b_01ec64',
+            'sam_quant': False,
+            'box_threshold': 0.3,
+            'text_threshold': 0.25
+        }
+    )
+    
+    if mask is None:
+        return "Error in generating mask."
+
+    # Mixing Image Prompt and Inpaint
     mixing_image_prompt_and_inpaint.update(value=True)
 
-    # Step 5: Generate the final image
-    generate_button.click()
+    # Generating the final image
+    task = AsyncTask([
+        True,  # generate_image_grid
+        "A person wearing the clothes from the reference image",  # prompt
+        "Unrealistic, blurry, low quality",  # negative_prompt
+        False,  # translate_prompts
+        ["Fooocus V2", "Fooocus Enhance", "Fooocus Sharp"],  # style_selections
+        flags.Performance.QUALITY.value,  # performance_selection
+        modules.config.default_aspect_ratio,  # aspect_ratios_selection
+        1,  # image_number
+        modules.config.default_output_format,  # output_format
+        random.randint(constants.MIN_SEED, constants.MAX_SEED),  # image_seed
+        modules.config.default_sample_sharpness,  # sharpness
+        modules.config.default_cfg_scale,  # guidance_scale
+        modules.config.default_base_model_name,  # base_model_name
+        modules.config.default_refiner_model_name,  # refiner_model_name
+        modules.config.default_refiner_switch,  # refiner_switch
+        clothes_image,  # uov_input_image
+        [],  # outpaint_selections
+        {'image': person_image, 'mask': mask},  # inpaint_input_image
+        "",  # inpaint_additional_prompt
+        mask,  # inpaint_mask_image_upload
+        False,  # disable_preview
+        False,  # disable_intermediate_results
+        modules.config.default_black_out_nsfw,  # black_out_nsfw
+        1.0,  # adm_scaler_positive
+        1.0,  # adm_scaler_negative
+        0.0,  # adm_scaler_end
+        modules.config.default_cfg_tsnr,  # adaptive_cfg
+        modules.config.default_sampler,  # sampler_name
+        modules.config.default_scheduler,  # scheduler_name
+        modules.config.default_overwrite_step,  # overwrite_step
+        modules.config.default_overwrite_switch,  # overwrite_switch
+        -1,  # overwrite_width
+        -1,  # overwrite_height
+        -1,  # overwrite_vary_strength
+        modules.config.default_overwrite_upscale_strength,  # overwrite_upscale_strength
+        True,  # mixing_image_prompt_and_vary_upscale
+        True,  # mixing_image_prompt_and_inpaint
+        False,  # debugging_cn_preprocessor
+        False,  # skipping_cn_preprocessor
+        100,  # canny_low_threshold
+        200,  # canny_high_threshold
+        flags.refiner_swap_method,  # refiner_swap_method
+        0.5,  # controlnet_softness
+        False,  # freeu_enabled
+        1.0,  # freeu_b1
+        1.0,  # freeu_b2
+        1.0,  # freeu_s1
+        1.0,  # freeu_s2
+        False,  # debugging_inpaint_preprocessor
+        False,  # inpaint_disable_initial_latent
+        modules.config.default_inpaint_engine_version,  # inpaint_engine
+        1.0,  # inpaint_strength
+        0.618,  # inpaint_respective_field
+        True,  # inpaint_mask_upload_checkbox
+        False,  # invert_mask_checkbox
+        0,  # inpaint_erode_or_dilate
+    ])
+    worker.async_tasks.append(task)
 
-    
+    # Wait for the task to complete
+    while not task.processing:
+        time.sleep(0.1)
+    while task.processing:
+        time.sleep(0.1)
+
+    return task.results
+
+
+
 def get_photopea_url_params():
     return "#%7B%22resources%22:%5B%22data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIAAQMAAADOtka5AAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAANQTFRF////p8QbyAAAADZJREFUeJztwQEBAAAAgiD/r25IQAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfBuCAAAB0niJ8AAAAABJRU5ErkJggg==%22%5D%7D"
 
@@ -151,6 +236,7 @@ with shared.gradio_root:
                                      elem_id='final_gallery',
                                      value=["assets/favicon.png"],
                                      preview=True)
+
             with gr.Tab("Virtual Try-On"):
                 with gr.Row():
                     clothes_input = gr.Image(label="Clothes Image", source='upload', type='numpy')
@@ -163,6 +249,7 @@ with shared.gradio_root:
                     inputs=[clothes_input, person_input],
                     outputs=[try_on_output]
                 )
+
 
             with gr.Tab("rembg"):
                 with gr.Column(scale=1):
