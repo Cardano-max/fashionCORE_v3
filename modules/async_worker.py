@@ -219,6 +219,13 @@ def worker():
                 print("Not enough elements in the args list for controlnet tasks.")
                 break
 
+        # Ensure mask is at least 3 dimensions for consistent processing
+        if inpaint_input_image['mask'].ndim == 2:
+            inpaint_input_image['mask'] = inpaint_input_image['mask'][:, :, np.newaxis]
+
+        inpaint_mask = inpaint_input_image['mask'][:, :, 0]
+
+
         outpaint_selections = [o.lower() for o in outpaint_selections]
         base_model_additional_loras = []
         raw_style_selections = copy.deepcopy(style_selections)
