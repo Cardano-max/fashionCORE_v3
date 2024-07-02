@@ -117,7 +117,7 @@ def virtual_try_on(clothes_image, person_image):
             -1,  # overwrite_width
             -1,  # overwrite_height
             -1,  # overwrite_vary_strength
-            modules.config.default_overwrite_upscale_strength,  # overwrite_upscale_strength
+            modules.config.default_overwrite_upscale,  # overwrite_upscale
             True,  # mixing_image_prompt_and_vary_upscale
             True,  # mixing_image_prompt_and_inpaint
             False,  # debugging_cn_preprocessor
@@ -266,6 +266,7 @@ with shared.gradio_root:
                     inputs=[clothes_input, person_input],
                     outputs=[try_on_output]
                 )
+
 
 
 
