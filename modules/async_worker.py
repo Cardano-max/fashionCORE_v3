@@ -874,13 +874,14 @@ def worker():
                     if freeu_enabled:
                         d.append(('FreeU', 'freeu', str((freeu_b1, freeu_b2, freeu_s1, freeu_s2))))
 
+                    # Metadata parser
                     metadata_parser = None
                     if save_metadata_to_images:
-                        metadata_parser = modules.meta_parser.get_metadata_parser(metadata_scheme)
+                        metadata_parser = get_metadata_parser(metadata_scheme)
                         metadata_parser.set_data(task['log_positive_prompt'], task['positive'],
-                                                 task['log_negative_prompt'], task['negative'],
-                                                 steps, base_model_name, refiner_model_name, loras)
-
+                                                task['log_negative_prompt'], task['negative'],
+                                                steps, base_model_name, refiner_model_name, loras)
+                                                
                     for li, (n, w) in enumerate(loras):
                         if n != 'None':
                             d.append((f'LoRA {li + 1}', f'lora_combined_{li + 1}', f'{n} : {w}'))
