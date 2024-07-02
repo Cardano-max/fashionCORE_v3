@@ -1,5 +1,5 @@
 # modules/virtual_tryon.py
-
+from modules.flags import Performance
 import gradio as gr
 import modules.config
 import modules.flags as flags
