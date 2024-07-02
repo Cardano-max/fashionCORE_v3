@@ -34,17 +34,9 @@ def generate_mask_from_image(image, mask_model, extras):
         for idx, box in enumerate(boxes):
             extras['sam_prompt'] += [{"type": "rectangle", "data": box.tolist()}]
 
-    mask = remove(
+    return remove(
         image,
         session=new_session(mask_model, **extras),
         only_mask=True,
         **extras
     )
-
-    # Ensure the mask is 2D
-    if len(mask.shape) == 3:
-        mask = mask[:, :, 0]
-    elif len(mask.shape) != 2:
-        raise ValueError(f"Unexpected mask shape: {mask.shape}")
-
-    return mask

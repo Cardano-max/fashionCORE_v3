@@ -318,20 +318,12 @@ def worker():
 
                     progressbar(async_task, 1, 'Downloading upscale models ...')
                     modules.config.downloading_upscale_model()
-
             if (current_tab == 'inpaint' or (
                     current_tab == 'ip' and mixing_image_prompt_and_inpaint)) \
                     and isinstance(inpaint_input_image, dict):
                 inpaint_image = inpaint_input_image['image']
-                inpaint_mask = inpaint_input_image['mask']
-                
-                # Check if inpaint_mask is 3D, and if so, take only the first channel
-                if inpaint_mask.ndim == 3:
-                    inpaint_mask = inpaint_mask[:, :, 0]
-                elif inpaint_mask.ndim != 2:
-                    raise ValueError(f"Unexpected mask shape: {inpaint_mask.shape}")
+                inpaint_mask = inpaint_input_image['mask'][:, :, 0]
 
-                # Rest of the code remains the same
                 if inpaint_mask_upload_checkbox:
                     if isinstance(inpaint_mask_image_upload, np.ndarray):
                         if inpaint_mask_image_upload.ndim == 3:
