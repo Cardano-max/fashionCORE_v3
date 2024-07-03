@@ -39,13 +39,13 @@ def virtual_try_on(clothes_image, person_image):
         # Image Prompt settings
         ip_images[0].update(value=clothes_image)
         ip_advanced.update(value=True)
-        ip_stops[0].update(value=0.5)  # Default value
-        ip_weights[0].update(value=1.0)  # Default value
+        ip_stops[0].update(value=0.86)  # Default value
+        ip_weights[0].update(value=0.97)  # Default value
 
         # Inpaint/Outpaint settings
         inpaint_input_image.update(value=person_image)
         inpaint_mask_model.update(value='sam')
-        inpaint_mask_sam_prompt_text.update(value='Clothes')
+        inpaint_mask_sam_prompt_text.update(value='Full clothes')
         inpaint_mask_upload_checkbox.update(value=True)
 
         # Generate mask
@@ -53,7 +53,7 @@ def virtual_try_on(clothes_image, person_image):
             person_image,
             'sam',
             {
-                'sam_prompt_text': 'Clothes',
+                'sam_prompt_text': 'Full clothes',
                 'sam_model': 'sam_vit_b_01ec64',
                 'sam_quant': False,
                 'box_threshold': 0.3,
@@ -76,20 +76,20 @@ def virtual_try_on(clothes_image, person_image):
         # Generating the final image
         args = [
             True,  # generate_image_grid
-            "A person wearing the clothes from the reference image",  # prompt
-            "Unrealistic, blurry, low quality",  # negative_prompt
+            "",  # prompt (empty as per manual metadata)
+            "",  # negative_prompt (empty as per manual metadata)
             False,  # translate_prompts
             ["Fooocus V2", "Fooocus Enhance", "Fooocus Sharp"],  # style_selections
             flags.Performance.QUALITY.value,  # performance_selection
-            modules.config.default_aspect_ratio,  # aspect_ratios_selection
+            "896*1152",  # aspect_ratios_selection (as per manual metadata)
             1,  # image_number
             modules.config.default_output_format,  # output_format
             random.randint(constants.MIN_SEED, constants.MAX_SEED),  # image_seed
-            modules.config.default_sample_sharpness,  # sharpness
-            modules.config.default_cfg_scale,  # guidance_scale
-            modules.config.default_base_model_name,  # base_model_name
-            modules.config.default_refiner_model_name,  # refiner_model_name
-            modules.config.default_refiner_switch,  # refiner_switch
+            2.0,  # sharpness (as per manual metadata)
+            4.0,  # guidance_scale (as per manual metadata)
+            "FluentlyXL-v4.safetensors",  # base_model_name (as per manual metadata)
+            "None",  # refiner_model_name (as per manual metadata)
+            0.5,  # refiner_switch (as per manual metadata)
         ] + loras + [
             True,  # input_image_checkbox
             "inpaint",  # current_tab
@@ -102,16 +102,16 @@ def virtual_try_on(clothes_image, person_image):
             False,  # disable_preview
             False,  # disable_intermediate_results
             modules.config.default_black_out_nsfw,  # black_out_nsfw
-            1.0,  # adm_scaler_positive
-            1.0,  # adm_scaler_negative
-            0.0,  # adm_scaler_end
+            1.5,  # adm_scaler_positive (as per manual metadata)
+            0.8,  # adm_scaler_negative (as per manual metadata)
+            0.3,  # adm_scaler_end (as per manual metadata)
             modules.config.default_cfg_tsnr,  # adaptive_cfg
-            modules.config.default_sampler,  # sampler_name
-            modules.config.default_scheduler,  # scheduler_name
-            modules.config.default_overwrite_step,  # overwrite_step
-            modules.config.default_overwrite_switch,  # overwrite_switch
-            -1,  # overwrite_width
-            -1,  # overwrite_height
+            "dpmpp_2m_sde_gpu",  # sampler_name (as per manual metadata)
+            "karras",  # scheduler_name (as per manual metadata)
+            45,  # overwrite_step (as per manual metadata)
+            -1,  # overwrite_switch
+            896,  # overwrite_width (as per manual metadata)
+            1152,  # overwrite_height (as per manual metadata)
             -1,  # overwrite_vary_strength
             modules.config.default_overwrite_upscale,  # overwrite_upscale
             True,  # mixing_image_prompt_and_vary_upscale
@@ -153,7 +153,6 @@ def virtual_try_on(clothes_image, person_image):
         print("Error in virtual_try_on:", str(e))
         traceback.print_exc()
         return f"Error: {str(e)}"
-
 
 
 
@@ -404,7 +403,7 @@ with shared.gradio_root:
                                                              choices=flags.inpaint_mask_cloth_category,
                                                              value=modules.config.default_inpaint_mask_cloth_category,
                                                              visible=False)
-                                inpaint_mask_sam_prompt_text = gr.Textbox(label='Segmentation prompt', value='', visible=False)
+                                inpaint_mask_sam_prompt_text = gr.Textbox(label='Segmentation prompt', value='Full Clothes', visible=False)
                                 with gr.Accordion("Advanced options", visible=False, open=False) as inpaint_mask_advanced_options:
                                     inpaint_mask_sam_model = gr.Dropdown(label='SAM model', choices=flags.inpaint_mask_sam_model, value=modules.config.default_inpaint_mask_sam_model)
                                     inpaint_mask_sam_quant = gr.Checkbox(label='Quantization', value=False)
