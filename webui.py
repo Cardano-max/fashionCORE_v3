@@ -45,8 +45,7 @@ import random
 import time
 import traceback
 
-# Add the current directory to the Python path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 
 from SegBody import segment_body
 import modules.config
@@ -54,6 +53,11 @@ import modules.flags as flags
 import modules.constants as constants
 import modules.async_worker as worker
 from modules.flags import Performance
+
+from modules.flags import Performance
+from PIL import Image
+from SegBody import segment_body
+import numpy as np
 
 def virtual_try_on(clothes_image, person_image):
     try:
@@ -67,12 +71,14 @@ def virtual_try_on(clothes_image, person_image):
         clothes_image = clothes_image.resize((512, 512))
         person_image = person_image.resize((512, 512))
 
-        # Generate mask for the person image using the new segmentation method
-        _, mask_image = segment_body(person_image, face=False)
-        mask_image = mask_image.resize((512, 512))
-
+        # Generate mask for the person image
+        seg_image, mask_image = segment_body(person_image, face=False)
+        
         # Convert mask to numpy array
         mask = np.array(mask_image)
+        
+        # Normalize mask to 0-255 range
+        mask = (mask > 0).astype(np.uint8) * 255
 
         # Prepare LoRA arguments
         loras = []
@@ -87,7 +93,7 @@ def virtual_try_on(clothes_image, person_image):
             modules.config.default_prompt_negative,  # negative_prompt
             False,  # translate_prompts
             modules.config.default_styles,  # style_selections
-            Performance.QUALITY.value,  # performance_selection (set to Quality)
+            Performance.QUALITY.value,  # performance_selection
             modules.config.default_aspect_ratio,  # aspect_ratios_selection
             1,  # image_number
             modules.config.default_output_format,  # output_format
