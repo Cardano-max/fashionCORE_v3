@@ -87,7 +87,7 @@ def virtual_try_on(clothes_image, person_image):
             modules.config.default_refiner_switch,  # refiner_switch
         ] + loras + [
             True,  # input_image_checkbox
-            "inpaint",  # current_tab
+            "ip",  # current_tab (changed to "ip" for Image Prompt)
             flags.disabled,  # uov_method
             None,  # uov_input_image
             [],  # outpaint_selections
@@ -136,10 +136,10 @@ def virtual_try_on(clothes_image, person_image):
 
         # Add Image Prompt for clothes image
         args.extend([
+            clothes_image,  # ip_image
+            0.6,  # ip_stop
+            0.5,  # ip_weight
             flags.default_ip,  # ip_type
-            flags.default_parameters[flags.default_ip][0],  # ip_stop
-            flags.default_parameters[flags.default_ip][1],  # ip_weight
-            clothes_image  # ip_image
         ])
 
         task = worker.AsyncTask(args=args)
@@ -160,7 +160,6 @@ def virtual_try_on(clothes_image, person_image):
         print("Error in virtual_try_on:", str(e))
         traceback.print_exc()
         return f"Error: {str(e)}"
-
 
 
 def get_photopea_url_params():
