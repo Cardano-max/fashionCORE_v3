@@ -54,7 +54,7 @@ def virtual_try_on(clothes_image, person_image):
         # Inpaint/Outpaint settings
         inpaint_input_image.update(value=HWC3(person_image))
         inpaint_mask_model.update(value=config.default_inpaint_mask_model)
-        inpaint_mask_sam_prompt_text.update(value='Full Clothes')
+        inpaint_mask_sam_prompt_text.update(value='Clothes')
         inpaint_mask_upload_checkbox.update(value=True)
 
         # Generate mask
@@ -62,7 +62,7 @@ def virtual_try_on(clothes_image, person_image):
             HWC3(person_image),
             config.default_inpaint_mask_model,
             {
-                'sam_prompt_text': 'Full Clothes',
+                'sam_prompt_text': 'Clothes',
                 'sam_model': config.default_inpaint_mask_sam_model,
                 'sam_quant': False,
                 'box_threshold': 0.3,
@@ -83,7 +83,16 @@ def virtual_try_on(clothes_image, person_image):
             loras.append(lora[1])
 
         # Aspect ratio handling
-        width, height = map(int, config.default_aspect_ratio.split('×')[0].split('*'))
+        try:
+            aspect_ratio = config.default_aspect_ratio.split('×')[0]
+            if '*' in aspect_ratio:
+                width, height = map(int, aspect_ratio.split('*'))
+            else:
+                # Default to a square aspect ratio if parsing fails
+                width = height = 1024
+        except Exception as e:
+            print(f"Error parsing aspect ratio: {e}")
+            width = height = 1024
 
         # Generating the final image
         args = [
@@ -269,19 +278,27 @@ with shared.gradio_root:
                                      value=["assets/favicon.png"],
                                      preview=True)
 
-            # Add this part to your existing gradio interface
             with gr.Tab("Virtual Try-On"):
                 with gr.Row():
                     clothes_input = gr.Image(label="Clothes Image", source='upload', type='numpy')
                     person_input = gr.Image(label="Person Image", source='upload', type='numpy')
                 try_on_button = gr.Button("Try On")
                 try_on_output = gr.Gallery(label="Try-On Result")
+                error_output = gr.Textbox(label="Error", visible=False)
+
+                def process_virtual_try_on(clothes_image, person_image):
+                    result = virtual_try_on(clothes_image, person_image)
+                    if isinstance(result, list):
+                        return gr.update(value=result, visible=True), gr.update(value="", visible=False)
+                    else:
+                        return gr.update(value=None, visible=False), gr.update(value=result, visible=True)
 
                 try_on_button.click(
-                    virtual_try_on,
+                    process_virtual_try_on,
                     inputs=[clothes_input, person_input],
-                    outputs=[try_on_output]
+                    outputs=[try_on_output, error_output]
                 )
+
 
 
 
