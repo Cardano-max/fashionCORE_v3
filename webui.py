@@ -54,7 +54,7 @@ def virtual_try_on(clothes_image, person_image):
         # Inpaint/Outpaint settings
         inpaint_input_image.update(value=HWC3(person_image))
         inpaint_mask_model.update(value=config.default_inpaint_mask_model)
-        inpaint_mask_sam_prompt_text.update(value='Clothes')
+        inpaint_mask_sam_prompt_text.update(value='Full Clothes')
         inpaint_mask_upload_checkbox.update(value=True)
 
         # Generate mask
@@ -62,7 +62,7 @@ def virtual_try_on(clothes_image, person_image):
             HWC3(person_image),
             config.default_inpaint_mask_model,
             {
-                'sam_prompt_text': 'Clothes',
+                'sam_prompt_text': 'Full Clothes',
                 'sam_model': config.default_inpaint_mask_sam_model,
                 'sam_quant': False,
                 'box_threshold': 0.3,
