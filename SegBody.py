@@ -5,7 +5,7 @@ from PIL import Image
 # Initialize segmentation pipeline
 segmenter = pipeline(model="mattmdjaga/segformer_b2_clothes")
 
-def segment_body(original_img, face=True):
+def segment_body(original_img, exclude_face=True):
     # Make a copy
     img = original_img.copy()
     
@@ -13,17 +13,24 @@ def segment_body(original_img, face=True):
     segments = segmenter(img)
 
     # Create list of masks
-    segment_include = ["Hat", "Hair", "Sunglasses", "Upper-clothes", "Skirt", "Pants", "Dress", "Belt", "Left-shoe", "Right-shoe", "Face", "Left-leg", "Right-leg", "Left-arm", "Right-arm", "Bag", "Scarf"]
-    mask_list = []
+    segment_include = ["Upper-clothes", "Skirt", "Pants", "Dress", "Belt", "Left-shoe", "Right-shoe", "Left-leg", "Right-leg", "Left-arm", "Right-arm"]
+    face_segments = ["Hat", "Hair", "Sunglasses", "Face"]
+    
+    body_mask = np.zeros((img.height, img.width), dtype=np.uint8)
+    face_mask = np.zeros((img.height, img.width), dtype=np.uint8)
+
     for s in segments:
         if s['label'] in segment_include:
-            mask_list.append(s['mask'])
+            body_mask = np.maximum(body_mask, s['mask'])
+        elif s['label'] in face_segments:
+            face_mask = np.maximum(face_mask, s['mask'])
 
-    # Paste all masks on top of each other 
-    final_mask = np.zeros_like(mask_list[0], dtype=np.uint8)
-    for mask in mask_list:
-        final_mask = np.maximum(final_mask, mask)
-            
+    # If we want to exclude the face, subtract the face mask from the body mask
+    if exclude_face:
+        final_mask = body_mask & ~face_mask
+    else:
+        final_mask = body_mask
+
     # Convert final mask from np array to PIL image
     final_mask = Image.fromarray(final_mask * 255)
 
@@ -41,17 +48,14 @@ def segment_torso(original_img):
     segments = segmenter(img)
 
     # Create list of masks
-    segment_include = ["Upper-clothes", "Dress", "Belt", "Face", "Left-arm", "Right-arm"]
-    mask_list = []
+    segment_include = ["Upper-clothes", "Dress", "Belt", "Left-arm", "Right-arm"]
+    
+    final_mask = np.zeros((img.height, img.width), dtype=np.uint8)
+
     for s in segments:
         if s['label'] in segment_include:
-            mask_list.append(s['mask'])
+            final_mask = np.maximum(final_mask, s['mask'])
 
-    # Paste all masks on top of each other 
-    final_mask = np.zeros_like(mask_list[0], dtype=np.uint8)
-    for mask in mask_list:
-        final_mask = np.maximum(final_mask, mask)
-            
     # Convert final mask from np array to PIL image
     final_mask = Image.fromarray(final_mask * 255)
 

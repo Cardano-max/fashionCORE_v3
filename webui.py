@@ -70,8 +70,8 @@ def virtual_try_on(clothes_image, person_image):
         clothes_image = clothes_image.resize((512, 512))
         person_image = person_image.resize((512, 512))
 
-        # Generate mask for the person image
-        seg_image, mask_image = segment_body(person_image, face=True)
+        # Generate mask for the person image, excluding the face
+        seg_image, mask_image = segment_body(person_image, exclude_face=True)
         
         # Convert mask to numpy array
         mask = np.array(mask_image)
