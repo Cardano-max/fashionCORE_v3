@@ -39,22 +39,22 @@ def virtual_try_on(clothes_image, person_image):
         # Image Prompt settings
         ip_images[0].update(value=clothes_image)
         ip_advanced.update(value=True)
-        ip_stops[0].update(value=0.86)  # Default value
-        ip_weights[0].update(value=0.97)  # Default value
+        ip_stops[0].update(value=flags.default_parameters[flags.default_ip][0])
+        ip_weights[0].update(value=flags.default_parameters[flags.default_ip][1])
 
         # Inpaint/Outpaint settings
         inpaint_input_image.update(value=person_image)
-        inpaint_mask_model.update(value='sam')
-        inpaint_mask_sam_prompt_text.update(value='Full clothes')
+        inpaint_mask_model.update(value=default_inpaint_mask_model)
+        inpaint_mask_sam_prompt_text.update(value='Clothes')
         inpaint_mask_upload_checkbox.update(value=True)
 
         # Generate mask
         mask = generate_mask_from_image(
             person_image,
-            'sam',
+            default_inpaint_mask_model,
             {
-                'sam_prompt_text': 'Full clothes',
-                'sam_model': 'sam_vit_b_01ec64',
+                'sam_prompt_text': 'Clothes',
+                'sam_model': default_inpaint_mask_sam_model,
                 'sam_quant': False,
                 'box_threshold': 0.3,
                 'text_threshold': 0.25
@@ -69,27 +69,30 @@ def virtual_try_on(clothes_image, person_image):
 
         # Prepare LoRA arguments
         loras = []
-        for lora in modules.config.default_loras:
+        for lora in default_loras:
             loras.append(lora[0])
             loras.append(lora[1])
+
+        # Aspect ratio handling
+        width, height = map(int, default_aspect_ratio.split('×')[0].split('*'))
 
         # Generating the final image
         args = [
             True,  # generate_image_grid
             "",  # prompt (empty as per manual metadata)
-            "",  # negative_prompt (empty as per manual metadata)
+            default_prompt_negative,  # negative_prompt
             False,  # translate_prompts
-            ["Fooocus V2", "Fooocus Enhance", "Fooocus Sharp"],  # style_selections
-            flags.Performance.QUALITY.value,  # performance_selection
-            "896*1152",  # aspect_ratios_selection (as per manual metadata)
-            1,  # image_number
-            modules.config.default_output_format,  # output_format
+            default_styles,  # style_selections
+            default_performance,  # performance_selection
+            default_aspect_ratio,  # aspect_ratios_selection
+            default_image_number,  # image_number
+            default_output_format,  # output_format
             random.randint(constants.MIN_SEED, constants.MAX_SEED),  # image_seed
-            2.0,  # sharpness (as per manual metadata)
-            4.0,  # guidance_scale (as per manual metadata)
-            "FluentlyXL-v4.safetensors",  # base_model_name (as per manual metadata)
-            "None",  # refiner_model_name (as per manual metadata)
-            0.5,  # refiner_switch (as per manual metadata)
+            default_sample_sharpness,  # sharpness
+            default_cfg_scale,  # guidance_scale
+            default_base_model_name,  # base_model_name
+            default_refiner_model_name,  # refiner_model_name
+            default_refiner_switch,  # refiner_switch
         ] + loras + [
             True,  # input_image_checkbox
             "inpaint",  # current_tab
@@ -101,19 +104,19 @@ def virtual_try_on(clothes_image, person_image):
             mask,  # inpaint_mask_image_upload
             False,  # disable_preview
             False,  # disable_intermediate_results
-            modules.config.default_black_out_nsfw,  # black_out_nsfw
+            default_black_out_nsfw,  # black_out_nsfw
             1.5,  # adm_scaler_positive (as per manual metadata)
             0.8,  # adm_scaler_negative (as per manual metadata)
             0.3,  # adm_scaler_end (as per manual metadata)
-            modules.config.default_cfg_tsnr,  # adaptive_cfg
-            "dpmpp_2m_sde_gpu",  # sampler_name (as per manual metadata)
-            "karras",  # scheduler_name (as per manual metadata)
-            45,  # overwrite_step (as per manual metadata)
-            -1,  # overwrite_switch
-            896,  # overwrite_width (as per manual metadata)
-            1152,  # overwrite_height (as per manual metadata)
+            default_cfg_tsnr,  # adaptive_cfg
+            default_sampler,  # sampler_name
+            default_scheduler,  # scheduler_name
+            default_overwrite_step,  # overwrite_step
+            default_overwrite_switch,  # overwrite_switch
+            width,  # overwrite_width
+            height,  # overwrite_height
             -1,  # overwrite_vary_strength
-            modules.config.default_overwrite_upscale,  # overwrite_upscale
+            default_overwrite_upscale,  # overwrite_upscale
             True,  # mixing_image_prompt_and_vary_upscale
             True,  # mixing_image_prompt_and_inpaint
             False,  # debugging_cn_preprocessor
@@ -129,14 +132,14 @@ def virtual_try_on(clothes_image, person_image):
             1.0,  # freeu_s2
             False,  # debugging_inpaint_preprocessor
             False,  # inpaint_disable_initial_latent
-            modules.config.default_inpaint_engine_version,  # inpaint_engine
+            default_inpaint_engine_version,  # inpaint_engine
             1.0,  # inpaint_strength
             0.618,  # inpaint_respective_field
             True,  # inpaint_mask_upload_checkbox
             False,  # invert_mask_checkbox
             0,  # inpaint_erode_or_dilate
-            modules.config.default_save_metadata_to_images,  # save_metadata_to_images
-            modules.config.default_metadata_scheme,  # metadata_scheme
+            default_save_metadata_to_images,  # save_metadata_to_images
+            default_metadata_scheme,  # metadata_scheme
         ]
 
         task = worker.AsyncTask(args)
