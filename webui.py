@@ -54,7 +54,6 @@ import modules.constants as constants
 import modules.async_worker as worker
 from modules.flags import Performance
 
-from modules.flags import Performance
 from PIL import Image
 from SegBody import segment_body
 import numpy as np
@@ -63,16 +62,16 @@ def virtual_try_on(clothes_image, person_image):
     try:
         # Convert images to PIL Images if they're not already
         if isinstance(clothes_image, np.ndarray):
-            clothes_image = Image.fromarray(clothes_image)
+            clothes_image = Image.fromarray(clothes_image).convert('RGB')
         if isinstance(person_image, np.ndarray):
-            person_image = Image.fromarray(person_image)
+            person_image = Image.fromarray(person_image).convert('RGB')
 
         # Resize images to 512x512
         clothes_image = clothes_image.resize((512, 512))
         person_image = person_image.resize((512, 512))
 
         # Generate mask for the person image
-        seg_image, mask_image = segment_body(person_image, face=False)
+        seg_image, mask_image = segment_body(person_image, face=True)
         
         # Convert mask to numpy array
         mask = np.array(mask_image)
