@@ -30,15 +30,15 @@ from modules.ui_gradio_extensions import reload_javascript
 from modules.auth import auth_enabled, check_auth
 from modules.util import is_json
 
-from extras.inpaint_mask import generate_mask_from_image
-import traceback
-
 import modules.config as config
 import modules.flags as flags
 import random
 import time
 import traceback
 from modules.util import HWC3
+
+from extras.inpaint_mask import generate_mask_from_image
+import traceback
 
 def virtual_try_on(clothes_image, person_image):
     try:
@@ -270,19 +270,18 @@ with shared.gradio_root:
                                      preview=True)
 
             # Add this part to your existing gradio interface
-            with shared.gradio_root:
-                with gr.Tab("Virtual Try-On"):
-                    with gr.Row():
-                        clothes_input = gr.Image(label="Clothes Image", source='upload', type='numpy')
-                        person_input = gr.Image(label="Person Image", source='upload', type='numpy')
-                    try_on_button = gr.Button("Try On")
-                    try_on_output = gr.Gallery(label="Try-On Result")
+            with gr.Tab("Virtual Try-On"):
+                with gr.Row():
+                    clothes_input = gr.Image(label="Clothes Image", source='upload', type='numpy')
+                    person_input = gr.Image(label="Person Image", source='upload', type='numpy')
+                try_on_button = gr.Button("Try On")
+                try_on_output = gr.Gallery(label="Try-On Result")
 
-                    try_on_button.click(
-                        virtual_try_on,
-                        inputs=[clothes_input, person_input],
-                        outputs=[try_on_output]
-                    )
+                try_on_button.click(
+                    virtual_try_on,
+                    inputs=[clothes_input, person_input],
+                    outputs=[try_on_output]
+                )
 
 
 
