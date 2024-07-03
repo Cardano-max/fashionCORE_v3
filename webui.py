@@ -31,30 +31,37 @@ from modules.util import is_json
 from extras.inpaint_mask import generate_mask_from_image
 import traceback
 
+import modules.config as config
+import modules.flags as flags
+import random
+import time
+import traceback
+from modules.util import HWC3
+
 def virtual_try_on(clothes_image, person_image):
     try:
         # Setting up the required inputs and configurations
         advanced_checkbox.update(value=True)
 
         # Image Prompt settings
-        ip_images[0].update(value=clothes_image)
+        ip_images[0].update(value=HWC3(clothes_image))
         ip_advanced.update(value=True)
         ip_stops[0].update(value=flags.default_parameters[flags.default_ip][0])
         ip_weights[0].update(value=flags.default_parameters[flags.default_ip][1])
 
         # Inpaint/Outpaint settings
-        inpaint_input_image.update(value=person_image)
-        inpaint_mask_model.update(value=default_inpaint_mask_model)
+        inpaint_input_image.update(value=HWC3(person_image))
+        inpaint_mask_model.update(value=config.default_inpaint_mask_model)
         inpaint_mask_sam_prompt_text.update(value='Clothes')
         inpaint_mask_upload_checkbox.update(value=True)
 
         # Generate mask
         mask = generate_mask_from_image(
-            person_image,
-            default_inpaint_mask_model,
+            HWC3(person_image),
+            config.default_inpaint_mask_model,
             {
                 'sam_prompt_text': 'Clothes',
-                'sam_model': default_inpaint_mask_sam_model,
+                'sam_model': config.default_inpaint_mask_sam_model,
                 'sam_quant': False,
                 'box_threshold': 0.3,
                 'text_threshold': 0.25
@@ -69,54 +76,54 @@ def virtual_try_on(clothes_image, person_image):
 
         # Prepare LoRA arguments
         loras = []
-        for lora in default_loras:
+        for lora in config.default_loras:
             loras.append(lora[0])
             loras.append(lora[1])
 
         # Aspect ratio handling
-        width, height = map(int, default_aspect_ratio.split('×')[0].split('*'))
+        width, height = map(int, config.default_aspect_ratio.split('×')[0].split('*'))
 
         # Generating the final image
         args = [
             True,  # generate_image_grid
             "",  # prompt (empty as per manual metadata)
-            default_prompt_negative,  # negative_prompt
+            config.default_prompt_negative,  # negative_prompt
             False,  # translate_prompts
-            default_styles,  # style_selections
-            default_performance,  # performance_selection
-            default_aspect_ratio,  # aspect_ratios_selection
-            default_image_number,  # image_number
-            default_output_format,  # output_format
+            config.default_styles,  # style_selections
+            config.default_performance,  # performance_selection
+            config.default_aspect_ratio,  # aspect_ratios_selection
+            config.default_image_number,  # image_number
+            config.default_output_format,  # output_format
             random.randint(constants.MIN_SEED, constants.MAX_SEED),  # image_seed
-            default_sample_sharpness,  # sharpness
-            default_cfg_scale,  # guidance_scale
-            default_base_model_name,  # base_model_name
-            default_refiner_model_name,  # refiner_model_name
-            default_refiner_switch,  # refiner_switch
+            config.default_sample_sharpness,  # sharpness
+            config.default_cfg_scale,  # guidance_scale
+            config.default_base_model_name,  # base_model_name
+            config.default_refiner_model_name,  # refiner_model_name
+            config.default_refiner_switch,  # refiner_switch
         ] + loras + [
             True,  # input_image_checkbox
             "inpaint",  # current_tab
             flags.disabled,  # uov_method
-            clothes_image,  # uov_input_image
+            HWC3(clothes_image),  # uov_input_image
             [],  # outpaint_selections
-            {'image': person_image, 'mask': mask},  # inpaint_input_image
+            {'image': HWC3(person_image), 'mask': mask},  # inpaint_input_image
             "",  # inpaint_additional_prompt
             mask,  # inpaint_mask_image_upload
             False,  # disable_preview
             False,  # disable_intermediate_results
-            default_black_out_nsfw,  # black_out_nsfw
+            config.default_black_out_nsfw,  # black_out_nsfw
             1.5,  # adm_scaler_positive (as per manual metadata)
             0.8,  # adm_scaler_negative (as per manual metadata)
             0.3,  # adm_scaler_end (as per manual metadata)
-            default_cfg_tsnr,  # adaptive_cfg
-            default_sampler,  # sampler_name
-            default_scheduler,  # scheduler_name
-            default_overwrite_step,  # overwrite_step
-            default_overwrite_switch,  # overwrite_switch
+            config.default_cfg_tsnr,  # adaptive_cfg
+            config.default_sampler,  # sampler_name
+            config.default_scheduler,  # scheduler_name
+            config.default_overwrite_step,  # overwrite_step
+            config.default_overwrite_switch,  # overwrite_switch
             width,  # overwrite_width
             height,  # overwrite_height
             -1,  # overwrite_vary_strength
-            default_overwrite_upscale,  # overwrite_upscale
+            config.default_overwrite_upscale,  # overwrite_upscale
             True,  # mixing_image_prompt_and_vary_upscale
             True,  # mixing_image_prompt_and_inpaint
             False,  # debugging_cn_preprocessor
@@ -132,14 +139,14 @@ def virtual_try_on(clothes_image, person_image):
             1.0,  # freeu_s2
             False,  # debugging_inpaint_preprocessor
             False,  # inpaint_disable_initial_latent
-            default_inpaint_engine_version,  # inpaint_engine
+            config.default_inpaint_engine_version,  # inpaint_engine
             1.0,  # inpaint_strength
             0.618,  # inpaint_respective_field
             True,  # inpaint_mask_upload_checkbox
             False,  # invert_mask_checkbox
             0,  # inpaint_erode_or_dilate
-            default_save_metadata_to_images,  # save_metadata_to_images
-            default_metadata_scheme,  # metadata_scheme
+            config.default_save_metadata_to_images,  # save_metadata_to_images
+            config.default_metadata_scheme,  # metadata_scheme
         ]
 
         task = worker.AsyncTask(args)
@@ -151,7 +158,11 @@ def virtual_try_on(clothes_image, person_image):
         while task.processing:
             time.sleep(0.1)
 
-        return task.results
+        if isinstance(task.results, list) and len(task.results) > 0:
+            return task.results
+        else:
+            return "Error: No results generated"
+
     except Exception as e:
         print("Error in virtual_try_on:", str(e))
         traceback.print_exc()
@@ -257,18 +268,19 @@ with shared.gradio_root:
                                      preview=True)
 
             # Add this part to your existing gradio interface
-            with gr.Tab("Virtual Try-On"):
-                with gr.Row():
-                    clothes_input = gr.Image(label="Clothes Image", source='upload', type='numpy')
-                    person_input = gr.Image(label="Person Image", source='upload', type='numpy')
-                try_on_button = gr.Button("Try On")
-                try_on_output = gr.Gallery(label="Try-On Result")
+            with shared.gradio_root:
+                with gr.Tab("Virtual Try-On"):
+                    with gr.Row():
+                        clothes_input = gr.Image(label="Clothes Image", source='upload', type='numpy')
+                        person_input = gr.Image(label="Person Image", source='upload', type='numpy')
+                    try_on_button = gr.Button("Try On")
+                    try_on_output = gr.Gallery(label="Try-On Result")
 
-                try_on_button.click(
-                    virtual_try_on,
-                    inputs=[clothes_input, person_input],
-                    outputs=[try_on_output]
-                )
+                    try_on_button.click(
+                        virtual_try_on,
+                        inputs=[clothes_input, person_input],
+                        outputs=[try_on_output]
+                    )
 
 
 
