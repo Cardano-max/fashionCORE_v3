@@ -42,28 +42,17 @@ import traceback
 
 def virtual_try_on(clothes_image, person_image):
     try:
-        # Setting up the required inputs and configurations
-        advanced_checkbox.update(value=True)
+        # Convert images to numpy arrays if they're not already
+        clothes_image = np.array(clothes_image)
+        person_image = np.array(person_image)
 
-        # Image Prompt settings
-        ip_images[0].update(value=HWC3(clothes_image))
-        ip_advanced.update(value=True)
-        ip_stops[0].update(value=flags.default_parameters[flags.default_ip][0])
-        ip_weights[0].update(value=flags.default_parameters[flags.default_ip][1])
-
-        # Inpaint/Outpaint settings
-        inpaint_input_image.update(value=HWC3(person_image))
-        inpaint_mask_model.update(value=config.default_inpaint_mask_model)
-        inpaint_mask_sam_prompt_text.update(value='Clothes')
-        inpaint_mask_upload_checkbox.update(value=True)
-
-        # Generate mask
+        # Generate mask for the person image
         mask = generate_mask_from_image(
-            HWC3(person_image),
-            config.default_inpaint_mask_model,
+            person_image,
+            modules.config.default_inpaint_mask_model,
             {
-                'sam_prompt_text': 'Clothes',
-                'sam_model': config.default_inpaint_mask_sam_model,
+                'sam_prompt_text': 'Full Clothes',
+                'sam_model': modules.config.default_inpaint_mask_sam_model,
                 'sam_quant': False,
                 'box_threshold': 0.3,
                 'text_threshold': 0.25
@@ -73,69 +62,54 @@ def virtual_try_on(clothes_image, person_image):
         if mask is None:
             return "Error in generating mask."
 
-        # Mixing Image Prompt and Inpaint
-        mixing_image_prompt_and_inpaint.update(value=True)
-
         # Prepare LoRA arguments
         loras = []
-        for lora in config.default_loras:
+        for lora in modules.config.default_loras:
             loras.append(lora[0])
             loras.append(lora[1])
 
-        # Aspect ratio handling
-        try:
-            aspect_ratio = config.default_aspect_ratio.split('×')[0]
-            if '*' in aspect_ratio:
-                width, height = map(int, aspect_ratio.split('*'))
-            else:
-                # Default to a square aspect ratio if parsing fails
-                width = height = 1024
-        except Exception as e:
-            print(f"Error parsing aspect ratio: {e}")
-            width = height = 1024
-
-        # Generating the final image
+        # Set up the arguments for the generation task
         args = [
             True,  # generate_image_grid
             "",  # prompt (empty as per manual metadata)
-            config.default_prompt_negative,  # negative_prompt
+            modules.config.default_prompt_negative,  # negative_prompt
             False,  # translate_prompts
-            config.default_styles,  # style_selections
-            config.default_performance,  # performance_selection
-            config.default_aspect_ratio,  # aspect_ratios_selection
-            config.default_image_number,  # image_number
-            config.default_output_format,  # output_format
+            modules.config.default_styles,  # style_selections
+            modules.config.default_performance,  # performance_selection
+            modules.config.default_aspect_ratio,  # aspect_ratios_selection
+            1,  # image_number
+            modules.config.default_output_format,  # output_format
             random.randint(constants.MIN_SEED, constants.MAX_SEED),  # image_seed
-            config.default_sample_sharpness,  # sharpness
-            config.default_cfg_scale,  # guidance_scale
-            config.default_base_model_name,  # base_model_name
-            config.default_refiner_model_name,  # refiner_model_name
-            config.default_refiner_switch,  # refiner_switch
+            modules.config.default_sample_sharpness,  # sharpness
+            modules.config.default_cfg_scale,  # guidance_scale
+            modules.config.default_base_model_name,  # base_model_name
+            modules.config.default_refiner_model_name,  # refiner_model_name
+            modules.config.default_refiner_switch,  # refiner_switch
         ] + loras + [
             True,  # input_image_checkbox
             "inpaint",  # current_tab
             flags.disabled,  # uov_method
-            HWC3(clothes_image),  # uov_input_image
+            None,  # uov_input_image
             [],  # outpaint_selections
-            {'image': HWC3(person_image), 'mask': mask},  # inpaint_input_image
+            {'image': person_image, 'mask': mask},  # inpaint_input_image
             "",  # inpaint_additional_prompt
             mask,  # inpaint_mask_image_upload
             False,  # disable_preview
             False,  # disable_intermediate_results
-            config.default_black_out_nsfw,  # black_out_nsfw
-            1.5,  # adm_scaler_positive (as per manual metadata)
-            0.8,  # adm_scaler_negative (as per manual metadata)
-            0.3,  # adm_scaler_end (as per manual metadata)
-            config.default_cfg_tsnr,  # adaptive_cfg
-            config.default_sampler,  # sampler_name
-            config.default_scheduler,  # scheduler_name
-            config.default_overwrite_step,  # overwrite_step
-            config.default_overwrite_switch,  # overwrite_switch
-            width,  # overwrite_width
-            height,  # overwrite_height
+            modules.config.default_black_out_nsfw,  # black_out_nsfw
+            1.5,  # adm_scaler_positive
+            0.8,  # adm_scaler_negative
+            0.3,  # adm_scaler_end
+            modules.config.default_cfg_tsnr,  # adaptive_cfg
+            modules.config.default_sampler,  # sampler_name
+            modules.config.default_scheduler,  # scheduler_name
+            -1,  # overwrite_step
+            -1,  # overwrite_switch
+            -1,  # overwrite_width
+            -1,  # overwrite_height
             -1,  # overwrite_vary_strength
-            config.default_overwrite_upscale,  # overwrite_upscale
-            True,  # mixing_image_prompt_and_vary_upscale
+            modules.config.default_overwrite_upscale,  # overwrite_upscale_strength
+            False,  # mixing_image_prompt_and_vary_upscale
             True,  # mixing_image_prompt_and_inpaint
             False,  # debugging_cn_preprocessor
             False,  # skipping_cn_preprocessor
@@ -150,17 +124,25 @@ def virtual_try_on(clothes_image, person_image):
             1.0,  # freeu_s2
             False,  # debugging_inpaint_preprocessor
             False,  # inpaint_disable_initial_latent
-            config.default_inpaint_engine_version,  # inpaint_engine
+            modules.config.default_inpaint_engine_version,  # inpaint_engine
             1.0,  # inpaint_strength
             0.618,  # inpaint_respective_field
             True,  # inpaint_mask_upload_checkbox
             False,  # invert_mask_checkbox
             0,  # inpaint_erode_or_dilate
-            config.default_save_metadata_to_images,  # save_metadata_to_images
-            config.default_metadata_scheme,  # metadata_scheme
+            modules.config.default_save_metadata_to_images,  # save_metadata_to_images
+            modules.config.default_metadata_scheme,  # metadata_scheme
         ]
 
-        task = worker.AsyncTask(args)
+        # Add Image Prompt for clothes image
+        args.extend([
+            flags.default_ip,  # ip_type
+            flags.default_parameters[flags.default_ip][0],  # ip_stop
+            flags.default_parameters[flags.default_ip][1],  # ip_weight
+            clothes_image  # ip_image
+        ])
+
+        task = worker.AsyncTask(args=args)
         worker.async_tasks.append(task)
 
         # Wait for the task to complete
@@ -170,7 +152,7 @@ def virtual_try_on(clothes_image, person_image):
             time.sleep(0.1)
 
         if isinstance(task.results, list) and len(task.results) > 0:
-            return task.results
+            return task.results[0]  # Return the first (and only) generated image
         else:
             return "Error: No results generated"
 
@@ -286,19 +268,28 @@ with shared.gradio_root:
                 try_on_output = gr.Gallery(label="Try-On Result")
                 error_output = gr.Textbox(label="Error", visible=False)
 
+
+
+            with gr.Tab("Virtual Try-On"):
+                with gr.Row():
+                    clothes_input = gr.Image(label="Clothes Image", source='upload', type='numpy')
+                    person_input = gr.Image(label="Person Image", source='upload', type='numpy')
+                try_on_button = gr.Button("Try On")
+                try_on_output = gr.Image(label="Try-On Result")
+                error_output = gr.Textbox(label="Error", visible=False)
+
                 def process_virtual_try_on(clothes_image, person_image):
                     result = virtual_try_on(clothes_image, person_image)
-                    if isinstance(result, list):
-                        return gr.update(value=result, visible=True), gr.update(value="", visible=False)
-                    else:
+                    if isinstance(result, str):  # Error occurred
                         return gr.update(value=None, visible=False), gr.update(value=result, visible=True)
+                    else:  # Successfully generated image
+                        return gr.update(value=result, visible=True), gr.update(value="", visible=False)
 
                 try_on_button.click(
                     process_virtual_try_on,
                     inputs=[clothes_input, person_input],
                     outputs=[try_on_output, error_output]
                 )
-
 
 
 
