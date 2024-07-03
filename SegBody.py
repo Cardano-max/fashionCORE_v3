@@ -5,7 +5,7 @@ from PIL import Image
 # Initialize segmentation pipeline
 segmenter = pipeline(model="mattmdjaga/segformer_b2_clothes")
 
-def segment_body(original_img, exclude_face=True):
+def segment_body(original_img, exclude_face=True, neck_inclusion=0.5):
     # Make a copy
     img = original_img.copy()
     
@@ -25,9 +25,18 @@ def segment_body(original_img, exclude_face=True):
         elif s['label'] in face_segments:
             face_mask = np.maximum(face_mask, s['mask'])
 
-    # If we want to exclude the face, subtract the face mask from the body mask
     if exclude_face:
-        final_mask = body_mask & ~face_mask
+        # Find the bottom of the face mask
+        face_bottom = np.where(face_mask.sum(axis=1) > 0)[0][-1] if face_mask.sum() > 0 else 0
+        
+        # Calculate how much of the neck to include
+        neck_height = int((img.height - face_bottom) * neck_inclusion)
+        
+        # Create a mask that includes the body and the desired portion of the neck
+        neck_mask = np.zeros_like(face_mask)
+        neck_mask[face_bottom:face_bottom + neck_height, :] = 1
+        
+        final_mask = body_mask | (face_mask & neck_mask)
     else:
         final_mask = body_mask
 
