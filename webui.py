@@ -21,6 +21,8 @@ import launch
 import cv2
 import numpy as np
 from PIL import Image
+import sys
+sys.setrecursionlimit(10000)  # Increase this value as needed
 
 from modules.sdxl_styles import legal_style_names
 from modules.private_logger import get_current_html_path
