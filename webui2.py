@@ -8,10 +8,28 @@ import modules.constants as constants
 import modules.flags as flags
 import modules.html
 import modules.async_worker as worker
+import cv2
+
 
 # Assuming these functions are defined elsewhere in your codebase
 from modules.util import HWC3
 from modules.private_logger import get_current_html_path
+
+import numpy as np
+
+def HWC3(x):
+    if isinstance(x, np.ndarray):
+        if x.dtype != np.uint8:
+            x = (x * 255).clip(0, 255).astype(np.uint8)
+        if x.ndim == 2:
+            x = x[:, :, None].repeat(3, axis=2)
+        elif x.shape[2] == 1:
+            x = x.repeat(3, axis=2)
+        elif x.shape[2] == 4:
+            x = x[:, :, :3]
+        return x
+    else:
+        raise ValueError(f"Invalid input type {type(x)} for HWC3 conversion")
 
 # Sample garment images (replace these with actual paths to your merchandise images)
 SAMPLE_GARMENTS = [
@@ -24,9 +42,13 @@ SAMPLE_GARMENTS = [
 def virtual_try_on(clothes_image, person_image, inpaint_mask):
     try:
         # Convert images to numpy arrays if they're not already
-        clothes_image = np.array(clothes_image)
-        person_image = np.array(person_image)
-        inpaint_mask = np.array(inpaint_mask)
+        clothes_image = np.array(clothes_image).astype(np.uint8)
+        person_image = np.array(person_image).astype(np.uint8)
+        inpaint_mask = np.array(inpaint_mask).astype(np.uint8)
+
+        # Ensure images are in RGB format
+        clothes_image = cv2.cvtColor(clothes_image, cv2.COLOR_BGR2RGB)
+        person_image = cv2.cvtColor(person_image, cv2.COLOR_BGR2RGB)
 
         # Prepare LoRA arguments
         loras = []
@@ -179,11 +201,12 @@ def create_arbi_try_on_interface():
             result = virtual_try_on(clothes_image, inpaint_image, inpaint_mask)
             if isinstance(result, str) and result.startswith("Error"):  # Error occurred
                 return None, result
-            else:  # Successfully generated image
+            elif isinstance(result, np.ndarray):  # Successfully generated image
                 output_path = get_current_html_path()
-                # Assuming result is a numpy array, save it to the output path
-                Image.fromarray(result).save(output_path)
+                cv2.imwrite(output_path, cv2.cvtColor(result, cv2.COLOR_RGB2BGR))
                 return output_path, ""
+            else:
+                return None, "Unexpected result type"
 
         # In the Gradio interface setup:
         try_on_button.click(
