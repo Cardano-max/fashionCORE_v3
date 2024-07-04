@@ -54,6 +54,10 @@ import modules.constants as constants
 import modules.async_worker as worker
 from modules.flags import Performance
 
+
+from extras.inpaint_mask import generate_mask_from_image
+import traceback
+
 def virtual_try_on(clothes_image, person_image):
     try:
         # Convert images to numpy arrays if they're not already
