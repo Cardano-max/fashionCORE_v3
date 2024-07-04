@@ -119,10 +119,10 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
 
 # Example garment images (replace with actual image paths)
 example_garments = [
-    "/Users/ateeb.taseer/fashionCORE_v3/fashionCORE_v3/images/first.png",
-    "/Users/ateeb.taseer/fashionCORE_v3/fashionCORE_v3/images/first.png",
-    "/Users/ateeb.taseer/fashionCORE_v3/fashionCORE_v3/images/second.png",
-    "/Users/ateeb.taseer/fashionCORE_v3/fashionCORE_v3/images/third.png",
+    "images/tshirt1.jpg",
+    "images/tshirt2.jpg",
+    "images/hoodie1.jpg",
+    "images/jacket1.jpg",
 ]
 
 css = """
