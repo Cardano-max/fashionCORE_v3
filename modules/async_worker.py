@@ -335,8 +335,15 @@ def worker():
             if (current_tab == 'inpaint' or (
                     current_tab == 'ip' and mixing_image_prompt_and_inpaint)) \
                     and isinstance(inpaint_input_image, dict):
-                inpaint_image = inpaint_input_image['image']
-                inpaint_mask = inpaint_input_image['mask'][:, :, 0]
+                inpaint_image = inpaint_input_image.get('image')
+                inpaint_mask = inpaint_input_image.get('mask')
+                
+                if inpaint_image is not None and inpaint_mask is not None:
+                    # Ensure mask is at least 3 dimensions for consistent processing
+                    if inpaint_mask.ndim == 2:
+                        inpaint_mask = inpaint_mask[:, :, np.newaxis]
+                    
+                    inpaint_mask = inpaint_mask[:, :, 0]
 
                 if inpaint_mask_upload_checkbox:
                     if isinstance(inpaint_mask_image_upload, np.ndarray):
