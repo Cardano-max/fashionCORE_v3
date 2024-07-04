@@ -54,30 +54,27 @@ import modules.constants as constants
 import modules.async_worker as worker
 from modules.flags import Performance
 
-from PIL import Image
-from SegBody import segment_body
-import numpy as np
-
 def virtual_try_on(clothes_image, person_image):
     try:
-        # Convert images to PIL Images if they're not already
-        if isinstance(clothes_image, np.ndarray):
-            clothes_image = Image.fromarray(clothes_image).convert('RGB')
-        if isinstance(person_image, np.ndarray):
-            person_image = Image.fromarray(person_image).convert('RGB')
+        # Convert images to numpy arrays if they're not already
+        clothes_image = np.array(clothes_image)
+        person_image = np.array(person_image)
 
-        # Resize images to 512x512
-        clothes_image = clothes_image.resize((512, 512))
-        person_image = person_image.resize((512, 512))
-
-        # Generate mask for the person image, excluding the face
-        seg_image, mask_image = segment_body(person_image, exclude_face=True)
+        # Generate mask for the person image
+        mask = generate_mask_from_image(
+            person_image,
+            modules.config.default_inpaint_mask_model,
+            {
+                'sam_prompt_text': 'Full Clothes Deep Segmentation',
+                'sam_model': modules.config.default_inpaint_mask_sam_model,
+                'sam_quant': False,
+                'box_threshold': 0.3,
+                'text_threshold': 0.25
+            }
+        )
         
-        # Convert mask to numpy array
-        mask = np.array(mask_image)
-        
-        # Normalize mask to 0-255 range
-        mask = (mask > 0).astype(np.uint8) * 255
+        if mask is None:
+            return "Error in generating mask."
 
         # Prepare LoRA arguments
         loras = []
@@ -92,7 +89,7 @@ def virtual_try_on(clothes_image, person_image):
             modules.config.default_prompt_negative,  # negative_prompt
             False,  # translate_prompts
             modules.config.default_styles,  # style_selections
-            Performance.QUALITY.value,  # performance_selection
+            modules.config.default_performance,  # performance_selection
             modules.config.default_aspect_ratio,  # aspect_ratios_selection
             1,  # image_number
             modules.config.default_output_format,  # output_format
@@ -108,7 +105,7 @@ def virtual_try_on(clothes_image, person_image):
             flags.disabled,  # uov_method
             None,  # uov_input_image
             [],  # outpaint_selections
-            {'image': np.array(person_image), 'mask': mask},  # inpaint_input_image
+            {'image': person_image, 'mask': mask},  # inpaint_input_image
             "",  # inpaint_additional_prompt
             mask,  # inpaint_mask_image_upload
             False,  # disable_preview
@@ -153,7 +150,7 @@ def virtual_try_on(clothes_image, person_image):
 
         # Add Image Prompt for clothes image
         args.extend([
-            np.array(clothes_image),  # ip_image
+            clothes_image,  # ip_image
             0.6,  # ip_stop
             0.5,  # ip_weight
             flags.default_ip,  # ip_type
@@ -177,6 +174,7 @@ def virtual_try_on(clothes_image, person_image):
         print("Error in virtual_try_on:", str(e))
         traceback.print_exc()
         return f"Error: {str(e)}"
+
 
 def get_photopea_url_params():
     return "#%7B%22resources%22:%5B%22data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIAAQMAAADOtka5AAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAANQTFRF////p8QbyAAAADZJREFUeJztwQEBAAAAgiD/r25IQAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfBuCAAAB0niJ8AAAAABJRU5ErkJggg==%22%5D%7D"
@@ -280,8 +278,8 @@ with shared.gradio_root:
 
             with gr.Tab("Virtual Try-On"):
                 with gr.Row():
-                    clothes_input = gr.Image(label="Clothes Image", source='upload', type='pil')
-                    person_input = gr.Image(label="Person Image", source='upload', type='pil')
+                    clothes_input = gr.Image(label="Clothes Image", source='upload', type='numpy')
+                    person_input = gr.Image(label="Person Image", source='upload', type='numpy')
                 try_on_button = gr.Button("Try On")
                 try_on_output = gr.Image(label="Try-On Result")
                 error_output = gr.Textbox(label="Error", visible=False)
