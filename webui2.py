@@ -196,4 +196,4 @@ def create_arbi_try_on_interface():
 
 # Launch the interface
 demo = create_arbi_try_on_interface()
-demo.launch()
+demo.launch(share=True)
