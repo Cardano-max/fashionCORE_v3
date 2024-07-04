@@ -1,6 +1,8 @@
 import gradio as gr
 import random
 import time
+import traceback
+import sys
 import os
 import numpy as np
 import modules.config
@@ -8,22 +10,24 @@ import modules.async_worker as worker
 import modules.constants as constants
 import modules.flags as flags
 from modules.util import HWC3, resize_image
+from modules.private_logger import log
 
-def virtual_try_on(clothes_image, person_image):
+def custom_exception_handler(exc_type, exc_value, exc_traceback):
+    print("An unhandled exception occurred:")
+    traceback.print_exception(exc_type, exc_value, exc_traceback)
+    sys.exit(1)
+
+sys.excepthook = custom_exception_handler
+
+def virtual_try_on(clothes_image, person_image, inpaint_mask):
     try:
         clothes_image = HWC3(clothes_image)
-        
-        # Check if person_image is a dictionary (from sketch tool) or a direct image
-        if isinstance(person_image, dict):
-            inpaint_image = HWC3(person_image['image'])
-            inpaint_mask = HWC3(person_image['mask'])[:, :, 0]
-        else:
-            inpaint_image = HWC3(person_image)
-            inpaint_mask = np.zeros_like(inpaint_image)[:, :, 0]
+        person_image = HWC3(person_image)
+        inpaint_mask = HWC3(inpaint_mask)[:, :, 0]
 
         target_size = (512, 512)
         clothes_image = resize_image(clothes_image, target_size[0], target_size[1])
-        inpaint_image = resize_image(inpaint_image, target_size[0], target_size[1])
+        person_image = resize_image(person_image, target_size[0], target_size[1])
         inpaint_mask = resize_image(inpaint_mask, target_size[0], target_size[1])
 
         loras = []
@@ -32,7 +36,7 @@ def virtual_try_on(clothes_image, person_image):
 
         args = [
             True,
-            "A person wearing new clothes",
+            "",
             modules.config.default_prompt_negative,
             False,
             modules.config.default_styles,
@@ -52,11 +56,11 @@ def virtual_try_on(clothes_image, person_image):
             flags.disabled,
             None,
             [],
-            {'image': inpaint_image, 'mask': inpaint_mask},
+            {'image': person_image, 'mask': inpaint_mask},
             "Wearing a new garment",
             inpaint_mask,
-            False,
-            False,
+            True,
+            True,
             modules.config.default_black_out_nsfw,
             1.5,
             0.8,
@@ -93,11 +97,14 @@ def virtual_try_on(clothes_image, person_image):
             0,
             modules.config.default_save_metadata_to_images,
             modules.config.default_metadata_scheme,
+        ]
+
+        args.extend([
             clothes_image,
             0.6,
             0.5,
             flags.default_ip,
-        ]
+        ])
 
         task = worker.AsyncTask(args=args)
         worker.async_tasks.append(task)
@@ -108,19 +115,20 @@ def virtual_try_on(clothes_image, person_image):
             time.sleep(0.1)
 
         if task.results and isinstance(task.results, list) and len(task.results) > 0:
-            return task.results[0]
+            return {"success": True, "image_path": task.results[0]}
         else:
-            return None
+            return {"success": False, "error": "No results generated"}
 
     except Exception as e:
         print("Error in virtual_try_on:", str(e))
-        return None
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
 
 example_garments = [
     "images/first.png",
     "images/second.png",
     "images/third.png",
-    "images/third.png",
+    "images/first.png",
 ]
 
 css = """
@@ -195,16 +203,41 @@ with gr.Blocks(css=css) as demo:
 
     try_on_button = gr.Button("Try It On!", elem_classes="try-on-button")
     try_on_output = gr.Image(label="Virtual Try-On Result")
+    image_link = gr.HTML(visible=False)
+    error_output = gr.Textbox(label="Error", visible=False)
 
     def select_example_garment(evt: gr.SelectData):
         return example_garments[evt.index]
 
     example_garment_gallery.select(select_example_garment, None, clothes_input)
 
+    def process_virtual_try_on(clothes_image, person_image):
+        if clothes_image is None or person_image is None:
+            return gr.update(value=None, visible=False), gr.update(visible=False), gr.update(value="Please upload both a garment image and a person image.", visible=True)
+        
+        inpaint_image = person_image['image']
+        inpaint_mask = person_image['mask']
+        
+        if inpaint_mask is None or np.sum(inpaint_mask) == 0:
+            return gr.update(value=None, visible=False), gr.update(visible=False), gr.update(value="Please draw a mask on the person image to indicate where to apply the garment.", visible=True)
+        
+        result = virtual_try_on(clothes_image, inpaint_image, inpaint_mask)
+        
+        if result['success']:
+            image_path = result['image_path']
+            if os.path.exists(image_path):
+                relative_path = os.path.relpath(image_path, start=os.getcwd())
+                link_html = f'<a href="{relative_path}" target="_blank">Click here to view the generated image</a>'
+                return gr.update(value=image_path, visible=True), gr.update(value=link_html, visible=True), gr.update(value="", visible=False)
+            else:
+                return gr.update(value=None, visible=False), gr.update(visible=False), gr.update(value=f"Generated image not found at {image_path}", visible=True)
+        else:
+            return gr.update(value=None, visible=False), gr.update(visible=False), gr.update(value=result['error'], visible=True)
+
     try_on_button.click(
-        virtual_try_on,
+        process_virtual_try_on,
         inputs=[clothes_input, person_input],
-        outputs=[try_on_output]
+        outputs=[try_on_output, image_link, error_output]
     )
 
     gr.Markdown(
