@@ -228,7 +228,7 @@ def check_model_files():
 
 check_model_files()
 load_models()
-create_arbi_try_on_interface()
+demo =create_arbi_try_on_interface()
 demo.launch(share=True)
 
 
