@@ -177,17 +177,19 @@ def create_arbi_try_on_interface():
             inpaint_mask = person_image['mask']
             
             result = virtual_try_on(clothes_image, inpaint_image, inpaint_mask)
-            if isinstance(result, str):  # Error occurred
-                return gr.update(value=None, visible=False), gr.update(value=result, visible=True)
+            if isinstance(result, str) and result.startswith("Error"):  # Error occurred
+                return None, result
             else:  # Successfully generated image
-                output_path = get_current_html_path(result)
-                return gr.update(value=result, visible=True), gr.update(value="", visible=False)
+                output_path = get_current_html_path()
+                # Assuming result is a numpy array, save it to the output path
+                Image.fromarray(result).save(output_path)
+                return output_path, ""
 
-        garment_gallery.select(update_clothes_input, None, clothes_input)
+        # In the Gradio interface setup:
         try_on_button.click(
             process_virtual_try_on,
             inputs=[clothes_input, person_input],
-            outputs=[try_on_output, error_output]
+            outputs=[gr.Image(label="Virtual Try-On Result"), error_output]
         )
 
     return arbi_try_on
