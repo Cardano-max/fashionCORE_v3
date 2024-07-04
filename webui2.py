@@ -36,7 +36,7 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
 
         args = [
             True,
-            "",
+            "A person wearing new clothes",
             modules.config.default_prompt_negative,
             False,
             modules.config.default_styles,
@@ -59,8 +59,8 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
             {'image': person_image, 'mask': inpaint_mask},
             "Wearing a new garment",
             inpaint_mask,
-            True,
-            True,
+            False,
+            False,
             modules.config.default_black_out_nsfw,
             1.5,
             0.8,
@@ -128,7 +128,7 @@ example_garments = [
     "images/first.png",
     "images/second.png",
     "images/third.png",
-    "images/first.png",
+    "images/fourth.png",
 ]
 
 css = """
@@ -203,7 +203,6 @@ with gr.Blocks(css=css) as demo:
 
     try_on_button = gr.Button("Try It On!", elem_classes="try-on-button")
     try_on_output = gr.Image(label="Virtual Try-On Result")
-    image_link = gr.HTML(visible=False)
     error_output = gr.Textbox(label="Error", visible=False)
 
     def select_example_garment(evt: gr.SelectData):
@@ -213,31 +212,29 @@ with gr.Blocks(css=css) as demo:
 
     def process_virtual_try_on(clothes_image, person_image):
         if clothes_image is None or person_image is None:
-            return gr.update(value=None, visible=False), gr.update(visible=False), gr.update(value="Please upload both a garment image and a person image.", visible=True)
+            return gr.update(value=None, visible=False), gr.update(value="Please upload both a garment image and a person image.", visible=True)
         
         inpaint_image = person_image['image']
         inpaint_mask = person_image['mask']
         
         if inpaint_mask is None or np.sum(inpaint_mask) == 0:
-            return gr.update(value=None, visible=False), gr.update(visible=False), gr.update(value="Please draw a mask on the person image to indicate where to apply the garment.", visible=True)
+            return gr.update(value=None, visible=False), gr.update(value="Please draw a mask on the person image to indicate where to apply the garment.", visible=True)
         
         result = virtual_try_on(clothes_image, inpaint_image, inpaint_mask)
         
         if result['success']:
             image_path = result['image_path']
             if os.path.exists(image_path):
-                relative_path = os.path.relpath(image_path, start=os.getcwd())
-                link_html = f'<a href="{relative_path}" target="_blank">Click here to view the generated image</a>'
-                return gr.update(value=image_path, visible=True), gr.update(value=link_html, visible=True), gr.update(value="", visible=False)
+                return gr.update(value=image_path, visible=True), gr.update(value="", visible=False)
             else:
-                return gr.update(value=None, visible=False), gr.update(visible=False), gr.update(value=f"Generated image not found at {image_path}", visible=True)
+                return gr.update(value=None, visible=False), gr.update(value=f"Generated image not found at {image_path}", visible=True)
         else:
-            return gr.update(value=None, visible=False), gr.update(visible=False), gr.update(value=result['error'], visible=True)
+            return gr.update(value=None, visible=False), gr.update(value=result['error'], visible=True)
 
     try_on_button.click(
         process_virtual_try_on,
         inputs=[clothes_input, person_input],
-        outputs=[try_on_output, image_link, error_output]
+        outputs=[try_on_output, error_output]
     )
 
     gr.Markdown(
@@ -250,5 +247,6 @@ with gr.Blocks(css=css) as demo:
         Experience the future of online shopping with ArbiTryOn - where technology meets style!
         """
     )
+
 
 demo.launch(share=True)

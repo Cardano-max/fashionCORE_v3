@@ -268,11 +268,7 @@ with shared.gradio_root:
                         inputs=[clothes_input, person_input],
                         outputs=[try_on_output]
                     )
-
-
-
-
-
+                    
             with gr.Tab("rembg"):
                 with gr.Column(scale=1):
                     rembg_input = grh.Image(label='Drag above image to here', source='upload', type='filepath', scale=20)
