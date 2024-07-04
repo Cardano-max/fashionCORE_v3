@@ -58,27 +58,12 @@ from modules.flags import Performance
 from extras.inpaint_mask import generate_mask_from_image
 import traceback
 
-def virtual_try_on(clothes_image, person_image):
+def virtual_try_on(clothes_image, person_image, inpaint_mask):
     try:
         # Convert images to numpy arrays if they're not already
         clothes_image = np.array(clothes_image)
         person_image = np.array(person_image)
-
-        # Generate mask for the person image
-        mask = generate_mask_from_image(
-            person_image,
-            modules.config.default_inpaint_mask_model,
-            {
-                'sam_prompt_text': 'Full Clothes Deep Segmentation',
-                'sam_model': modules.config.default_inpaint_mask_sam_model,
-                'sam_quant': False,
-                'box_threshold': 0.3,
-                'text_threshold': 0.25
-            }
-        )
-        
-        if mask is None:
-            return "Error in generating mask."
+        inpaint_mask = np.array(inpaint_mask)
 
         # Prepare LoRA arguments
         loras = []
@@ -105,13 +90,13 @@ def virtual_try_on(clothes_image, person_image):
             modules.config.default_refiner_switch,  # refiner_switch
         ] + loras + [
             True,  # input_image_checkbox
-            "ip",  # current_tab (changed to "ip" for Image Prompt)
+            "inpaint",  # current_tab
             flags.disabled,  # uov_method
             None,  # uov_input_image
             [],  # outpaint_selections
-            {'image': person_image, 'mask': mask},  # inpaint_input_image
+            {'image': person_image, 'mask': inpaint_mask},  # inpaint_input_image
             "",  # inpaint_additional_prompt
-            mask,  # inpaint_mask_image_upload
+            inpaint_mask,  # inpaint_mask_image_upload
             False,  # disable_preview
             False,  # disable_intermediate_results
             modules.config.default_black_out_nsfw,  # black_out_nsfw
@@ -280,16 +265,21 @@ with shared.gradio_root:
 
 
 
+            # Update the Gradio interface
             with gr.Tab("Virtual Try-On"):
                 with gr.Row():
                     clothes_input = gr.Image(label="Clothes Image", source='upload', type='numpy')
-                    person_input = gr.Image(label="Person Image", source='upload', type='numpy')
+                    person_input = gr.Image(label="Person Image", source='upload', type='numpy', tool='sketch', elem_id='inpaint_canvas')
                 try_on_button = gr.Button("Try On")
                 try_on_output = gr.Image(label="Try-On Result")
                 error_output = gr.Textbox(label="Error", visible=False)
 
                 def process_virtual_try_on(clothes_image, person_image):
-                    result = virtual_try_on(clothes_image, person_image)
+                    # Extract the image and mask from the person_input
+                    inpaint_image = person_image['image']
+                    inpaint_mask = person_image['mask']
+                    
+                    result = virtual_try_on(clothes_image, inpaint_image, inpaint_mask)
                     if isinstance(result, str):  # Error occurred
                         return gr.update(value=None, visible=False), gr.update(value=result, visible=True)
                     else:  # Successfully generated image
