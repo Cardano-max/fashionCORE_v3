@@ -1,3 +1,4 @@
+
 import gradio as gr
 import random
 import os
@@ -21,8 +22,6 @@ import launch
 import cv2
 import numpy as np
 from PIL import Image
-import sys
-sys.setrecursionlimit(10000)  # Increase this value as needed
 
 from modules.sdxl_styles import legal_style_names
 from modules.private_logger import get_current_html_path
@@ -30,40 +29,44 @@ from modules.ui_gradio_extensions import reload_javascript
 from modules.auth import auth_enabled, check_auth
 from modules.util import is_json
 
-import modules.config as config
-import modules.flags as flags
-import random
-import time
-import traceback
-from modules.util import HWC3
-
-import sys
-import os
-import numpy as np
-from PIL import Image
-import random
-import time
-import traceback
-
-
-
-from SegBody import segment_body
-import modules.config
-import modules.flags as flags
-import modules.constants as constants
-import modules.async_worker as worker
-from modules.flags import Performance
-
-
 from extras.inpaint_mask import generate_mask_from_image
 import traceback
 
-def virtual_try_on(clothes_image, person_image, inpaint_mask):
+def virtual_try_on(clothes_image, person_image):
     try:
-        # Convert images to numpy arrays if they're not already
-        clothes_image = np.array(clothes_image)
-        person_image = np.array(person_image)
-        inpaint_mask = np.array(inpaint_mask)
+        # Setting up the required inputs and configurations
+        advanced_checkbox.update(value=True)
+
+        # Image Prompt settings
+        ip_images[0].update(value=clothes_image)
+        ip_advanced.update(value=True)
+        ip_stops[0].update(value=0.5)  # Default value
+        ip_weights[0].update(value=1.0)  # Default value
+
+        # Inpaint/Outpaint settings
+        inpaint_input_image.update(value=person_image)
+        inpaint_mask_model.update(value='sam')
+        inpaint_mask_sam_prompt_text.update(value='Clothes')
+        inpaint_mask_upload_checkbox.update(value=True)
+
+        # Generate mask
+        mask = generate_mask_from_image(
+            person_image,
+            'sam',
+            {
+                'sam_prompt_text': 'Clothes',
+                'sam_model': 'sam_vit_b_01ec64',
+                'sam_quant': False,
+                'box_threshold': 0.3,
+                'text_threshold': 0.25
+            }
+        )
+        
+        if mask is None:
+            return "Error in generating mask."
+
+        # Mixing Image Prompt and Inpaint
+        mixing_image_prompt_and_inpaint.update(value=True)
 
         # Prepare LoRA arguments
         loras = []
@@ -71,14 +74,14 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
             loras.append(lora[0])
             loras.append(lora[1])
 
-        # Set up the arguments for the generation task
+        # Generating the final image
         args = [
             True,  # generate_image_grid
-            "",  # prompt (empty as per manual metadata)
-            modules.config.default_prompt_negative,  # negative_prompt
+            "A person wearing the clothes from the reference image",  # prompt
+            "Unrealistic, blurry, low quality",  # negative_prompt
             False,  # translate_prompts
-            modules.config.default_styles,  # style_selections
-            modules.config.default_performance,  # performance_selection
+            ["Fooocus V2", "Fooocus Enhance", "Fooocus Sharp"],  # style_selections
+            flags.Performance.QUALITY.value,  # performance_selection
             modules.config.default_aspect_ratio,  # aspect_ratios_selection
             1,  # image_number
             modules.config.default_output_format,  # output_format
@@ -92,27 +95,27 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
             True,  # input_image_checkbox
             "inpaint",  # current_tab
             flags.disabled,  # uov_method
-            None,  # uov_input_image
+            clothes_image,  # uov_input_image
             [],  # outpaint_selections
-            {'image': person_image, 'mask': inpaint_mask},  # inpaint_input_image
+            {'image': person_image, 'mask': mask},  # inpaint_input_image
             "",  # inpaint_additional_prompt
-            inpaint_mask,  # inpaint_mask_image_upload
+            mask,  # inpaint_mask_image_upload
             False,  # disable_preview
             False,  # disable_intermediate_results
             modules.config.default_black_out_nsfw,  # black_out_nsfw
-            1.5,  # adm_scaler_positive
-            0.8,  # adm_scaler_negative
-            0.3,  # adm_scaler_end
+            1.0,  # adm_scaler_positive
+            1.0,  # adm_scaler_negative
+            0.0,  # adm_scaler_end
             modules.config.default_cfg_tsnr,  # adaptive_cfg
             modules.config.default_sampler,  # sampler_name
             modules.config.default_scheduler,  # scheduler_name
-            -1,  # overwrite_step
-            -1,  # overwrite_switch
+            modules.config.default_overwrite_step,  # overwrite_step
+            modules.config.default_overwrite_switch,  # overwrite_switch
             -1,  # overwrite_width
             -1,  # overwrite_height
             -1,  # overwrite_vary_strength
-            modules.config.default_overwrite_upscale,  # overwrite_upscale_strength
-            False,  # mixing_image_prompt_and_vary_upscale
+            modules.config.default_overwrite_upscale,  # overwrite_upscale
+            True,  # mixing_image_prompt_and_vary_upscale
             True,  # mixing_image_prompt_and_inpaint
             False,  # debugging_cn_preprocessor
             False,  # skipping_cn_preprocessor
@@ -137,15 +140,7 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
             modules.config.default_metadata_scheme,  # metadata_scheme
         ]
 
-        # Add Image Prompt for clothes image
-        args.extend([
-            clothes_image,  # ip_image
-            0.6,  # ip_stop
-            0.5,  # ip_weight
-            flags.default_ip,  # ip_type
-        ])
-
-        task = worker.AsyncTask(args=args)
+        task = worker.AsyncTask(args)
         worker.async_tasks.append(task)
 
         # Wait for the task to complete
@@ -154,15 +149,13 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
         while task.processing:
             time.sleep(0.1)
 
-        if isinstance(task.results, list) and len(task.results) > 0:
-            return task.results[0]  # Return the first (and only) generated image
-        else:
-            return "Error: No results generated"
-
+        return task.results
     except Exception as e:
         print("Error in virtual_try_on:", str(e))
         traceback.print_exc()
         return f"Error: {str(e)}"
+
+
 
 
 def get_photopea_url_params():
@@ -262,34 +255,20 @@ with shared.gradio_root:
                                      value=["assets/favicon.png"],
                                      preview=True)
 
+            # Add this part to your existing gradio interface
+            with shared.gradio_root:
+                with gr.Tab("Virtual Try-On"):
+                    with gr.Row():
+                        clothes_input = gr.Image(label="Clothes Image", source='upload', type='numpy')
+                        person_input = gr.Image(label="Person Image", source='upload', type='numpy')
+                    try_on_button = gr.Button("Try On")
+                    try_on_output = gr.Gallery(label="Try-On Result")
 
-
-
-            # Update the Gradio interface
-            with gr.Tab("Virtual Try-On"):
-                with gr.Row():
-                    clothes_input = gr.Image(label="Clothes Image", source='upload', type='numpy')
-                    person_input = gr.Image(label="Person Image", source='upload', type='numpy', tool='sketch', elem_id='inpaint_canvas')
-                try_on_button = gr.Button("Try On")
-                try_on_output = gr.Image(label="Try-On Result")
-                error_output = gr.Textbox(label="Error", visible=False)
-
-                def process_virtual_try_on(clothes_image, person_image):
-                    # Extract the image and mask from the person_input
-                    inpaint_image = person_image['image']
-                    inpaint_mask = person_image['mask']
-                    
-                    result = virtual_try_on(clothes_image, inpaint_image, inpaint_mask)
-                    if isinstance(result, str):  # Error occurred
-                        return gr.update(value=None, visible=False), gr.update(value=result, visible=True)
-                    else:  # Successfully generated image
-                        return gr.update(value=result, visible=True), gr.update(value="", visible=False)
-
-                try_on_button.click(
-                    process_virtual_try_on,
-                    inputs=[clothes_input, person_input],
-                    outputs=[try_on_output, error_output]
-                )
+                    try_on_button.click(
+                        virtual_try_on,
+                        inputs=[clothes_input, person_input],
+                        outputs=[try_on_output]
+                    )
 
 
 
@@ -427,7 +406,7 @@ with shared.gradio_root:
                                                              choices=flags.inpaint_mask_cloth_category,
                                                              value=modules.config.default_inpaint_mask_cloth_category,
                                                              visible=False)
-                                inpaint_mask_sam_prompt_text = gr.Textbox(label='Segmentation prompt', value='Full body except face', visible=False)
+                                inpaint_mask_sam_prompt_text = gr.Textbox(label='Segmentation prompt', value='', visible=False)
                                 with gr.Accordion("Advanced options", visible=False, open=False) as inpaint_mask_advanced_options:
                                     inpaint_mask_sam_model = gr.Dropdown(label='SAM model', choices=flags.inpaint_mask_sam_model, value=modules.config.default_inpaint_mask_sam_model)
                                     inpaint_mask_sam_quant = gr.Checkbox(label='Quantization', value=False)
@@ -1032,6 +1011,3 @@ shared.gradio_root.launch(
     auth=check_auth if (args_manager.args.share or args_manager.args.listen) and auth_enabled else None,
     blocked_paths=[constants.AUTH_FILENAME]
 )
-
-
-
