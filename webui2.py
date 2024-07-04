@@ -108,5 +108,4 @@ with gr.Blocks() as demo:
         outputs=[try_on_output]
     )
 
-if __name__ == "__main__":
-    demo.launch()
+demo.launch(share=True)
