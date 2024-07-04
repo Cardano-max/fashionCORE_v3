@@ -15,12 +15,10 @@ from modules.private_logger import get_current_html_path
 
 # Sample garment images (replace these with actual paths to your merchandise images)
 SAMPLE_GARMENTS = [
-    "path/to/tshirt1.jpg",
-    "path/to/hoodie1.jpg",
-    "path/to/jacket1.jpg",
-    "path/to/tshirt2.jpg",
-    "path/to/hoodie2.jpg",
-    "path/to/jacket2.jpg",
+    "images/first.png",
+    "images/second.png",
+    "images/third.png",
+    "images/fourth.png",
 ]
 
 def virtual_try_on(clothes_image, person_image, inpaint_mask):
