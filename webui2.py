@@ -6,8 +6,11 @@ import modules.async_worker as worker
 import modules.constants as constants
 import modules.flags as flags
 import numpy as np
-import asyncio
-
+import os
+import sys
+import cv2
+from modules.util import HWC3, resize_image
+from modules.private_logger import log
 
 from extras.inpaint_mask import generate_mask_from_image
 import traceback
@@ -15,9 +18,15 @@ import traceback
 def virtual_try_on(clothes_image, person_image, inpaint_mask):
     try:
         # Convert images to numpy arrays if they're not already
-        clothes_image = np.array(clothes_image)
-        person_image = np.array(person_image)
-        inpaint_mask = np.array(inpaint_mask)
+        clothes_image = HWC3(clothes_image)
+        person_image = HWC3(person_image)
+        inpaint_mask = HWC3(inpaint_mask)[:, :, 0]
+
+        # Resize images to match
+        target_size = (512, 512)  # You can adjust this size
+        clothes_image = resize_image(clothes_image, target_size[0], target_size[1])
+        person_image = resize_image(person_image, target_size[0], target_size[1])
+        inpaint_mask = cv2.resize(inpaint_mask, target_size, interpolation=cv2.INTER_NEAREST)
 
         # Prepare LoRA arguments
         loras = []
@@ -28,7 +37,7 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
         # Set up the arguments for the generation task
         args = [
             True,  # generate_image_grid
-            "",  # prompt (empty as per manual metadata)
+            "A person wearing a new garment",  # prompt
             modules.config.default_prompt_negative,  # negative_prompt
             False,  # translate_prompts
             modules.config.default_styles,  # style_selections
@@ -49,7 +58,7 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
             None,  # uov_input_image
             [],  # outpaint_selections
             {'image': person_image, 'mask': inpaint_mask},  # inpaint_input_image
-            "",  # inpaint_additional_prompt
+            "Wearing a new garment",  # inpaint_additional_prompt
             inpaint_mask,  # inpaint_mask_image_upload
             False,  # disable_preview
             False,  # disable_intermediate_results
@@ -109,13 +118,9 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
             time.sleep(0.1)
 
         if isinstance(task.results, list) and len(task.results) > 0:
-            result = task.results[0]
-            if isinstance(result, str):  # If it's a file path
-                return result
-            elif isinstance(result, np.ndarray):  # If it's a numpy array
-                return result
-            else:
-                return "Error: Unexpected result format"
+            return task.results[0]  # Return the first (and only) generated image
+        else:
+            return "Error: No results generated"
 
     except Exception as e:
         print("Error in virtual_try_on:", str(e))
@@ -210,23 +215,24 @@ with gr.Blocks(css=css) as demo:
 
     example_garment_gallery.select(select_example_garment, None, clothes_input)
 
-
-    async def process_virtual_try_on_async(clothes_image, person_image):
+    def process_virtual_try_on(clothes_image, person_image):
+        if clothes_image is None or person_image is None:
+            return gr.update(value=None, visible=False), gr.update(value="Please upload both a garment image and a person image.", visible=True)
+        
         inpaint_image = person_image['image']
         inpaint_mask = person_image['mask']
         
-        with gr.Progress() as progress:
-            progress(0, desc="Starting process...")
-            result = await asyncio.to_thread(virtual_try_on, clothes_image, inpaint_image, inpaint_mask)
-            progress(1, desc="Process complete")
+        if inpaint_mask is None or np.sum(inpaint_mask) == 0:
+            return gr.update(value=None, visible=False), gr.update(value="Please draw a mask on the person image to indicate where to apply the garment.", visible=True)
         
+        result = virtual_try_on(clothes_image, inpaint_image, inpaint_mask)
         if isinstance(result, str):  # Error occurred
-            return None, result
+            return gr.update(value=None, visible=False), gr.update(value=result, visible=True)
         else:  # Successfully generated image
-            return result, ""
+            return gr.update(value=result, visible=True), gr.update(value="", visible=False)
 
     try_on_button.click(
-        process_virtual_try_on_async,
+        process_virtual_try_on,
         inputs=[clothes_input, person_input],
         outputs=[try_on_output, error_output]
     )
@@ -242,4 +248,9 @@ with gr.Blocks(css=css) as demo:
         """
     )
 
-demo.launch(share=True)
+if __name__ == "__main__":
+    try:
+        demo.launch(share=True)
+    except Exception as e:
+        print(f"An error occurred while launching the demo: {str(e)}")
+        traceback.print_exc()
