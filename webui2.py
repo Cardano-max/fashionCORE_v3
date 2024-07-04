@@ -232,7 +232,11 @@ def run_app():
     load_models()
     demo = create_arbi_try_on_interface()
     link = demo.launch(share=True)
+    return link
+
+def print_app_link():
+    link = run_app()
     print(f"Gradio app running at: {link}")
 
 if __name__ == "__main__":
-    run_app()
+    print_app_link()
