@@ -256,7 +256,6 @@ with shared.gradio_root:
                                      preview=True)
 
             # Add this part to your existing gradio interface
-            with shared.gradio_root:
                 with gr.Tab("Virtual Try-On"):
                     with gr.Row():
                         clothes_input = gr.Image(label="Clothes Image", source='upload', type='numpy')
