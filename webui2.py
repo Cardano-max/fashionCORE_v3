@@ -1,15 +1,25 @@
 import gradio as gr
 import random
 import time
+import json
+import traceback
+import sys
+import os
+import numpy as np
 import modules.config
 import modules.async_worker as worker
 import modules.constants as constants
 import modules.flags as flags
-import numpy as np
-import os
-import traceback
 from modules.util import HWC3, resize_image
 from modules.private_logger import log
+
+def custom_exception_handler(exc_type, exc_value, exc_traceback):
+    print("An unhandled exception occurred:")
+    traceback.print_exception(exc_type, exc_value, exc_traceback)
+    sys.exit(1)
+
+sys.excepthook = custom_exception_handler
+
 
 def virtual_try_on(clothes_image, person_image, inpaint_mask):
     try:
@@ -113,14 +123,14 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
             time.sleep(0.1)
 
         if isinstance(task.results, list) and len(task.results) > 0:
-            return task.results[0]  # Return the first (and only) generated image
+            return json.dumps({"success": True, "image_path": task.results[0]})
         else:
-            return "Error: No results generated"
+            return json.dumps({"success": False, "error": "No results generated"})
 
     except Exception as e:
         print("Error in virtual_try_on:", str(e))
         traceback.print_exc()
-        return f"Error: {str(e)}"
+        return json.dumps({"success": False, "error": str(e)})
 
 # Example garment images (replace with actual image paths)
 example_garments = [
@@ -220,10 +230,14 @@ with gr.Blocks(css=css) as demo:
             return gr.update(value=None, visible=False), gr.update(value="Please draw a mask on the person image to indicate where to apply the garment.", visible=True)
         
         result = virtual_try_on(clothes_image, inpaint_image, inpaint_mask)
-        if isinstance(result, str):  # Error occurred
-            return gr.update(value=None, visible=False), gr.update(value=result, visible=True)
-        else:  # Successfully generated image
-            return gr.update(value=result, visible=True), gr.update(value="", visible=False)
+        try:
+            result_json = json.loads(result)
+            if result_json['success']:
+                return gr.update(value=result_json['image_path'], visible=True), gr.update(value="", visible=False)
+            else:
+                return gr.update(value=None, visible=False), gr.update(value=result_json['error'], visible=True)
+        except json.JSONDecodeError:
+            return gr.update(value=None, visible=False), gr.update(value="Server returned an invalid response.", visible=True)
 
     try_on_button.click(
         process_virtual_try_on,
