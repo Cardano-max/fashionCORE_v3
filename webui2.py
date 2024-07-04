@@ -231,4 +231,4 @@ with gr.Blocks(css=css) as demo:
         """
     )
 
-demo.launch()
+demo.launch(share=True)
