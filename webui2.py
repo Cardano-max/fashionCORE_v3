@@ -226,17 +226,9 @@ def check_model_files():
     else:
         print("All expected model files are present.")
 
-def run_app():
-    print("Starting ArbiTryOn...")
-    check_model_files()
-    load_models()
-    demo = create_arbi_try_on_interface()
-    link = demo.launch(share=True)
-    return link
+check_model_files()
+load_models()
+create_arbi_try_on_interface()
+demo.launch(share=True)
 
-def print_app_link():
-    link = run_app()
-    print(f"Gradio app running at: {link}")
 
-if __name__ == "__main__":
-    print_app_link()
