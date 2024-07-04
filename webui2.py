@@ -242,9 +242,5 @@ with gr.Blocks(css=css) as demo:
         """
     )
 
-if __name__ == "__main__":
-    try:
-        demo.launch(share=True)
-    except Exception as e:
-        print(f"An error occurred while launching the demo: {str(e)}")
-        traceback.print_exc()
+
+demo.launch(share=True)
