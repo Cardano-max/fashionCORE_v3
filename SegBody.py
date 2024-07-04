@@ -1,17 +1,11 @@
 from transformers import pipeline
 import numpy as np
 from PIL import Image
-import cv2
 
 # Initialize segmentation pipeline
 segmenter = pipeline(model="mattmdjaga/segformer_b2_clothes")
 
-def expand_mask(mask, expansion=5):
-    kernel = np.ones((expansion, expansion), np.uint8)
-    expanded_mask = cv2.dilate(mask, kernel, iterations=1)
-    return expanded_mask
-
-def segment_body(original_img, exclude_face=True, edge_expansion=5):
+def segment_body(original_img, exclude_face=True):
     # Make a copy
     img = original_img.copy()
     
@@ -37,17 +31,39 @@ def segment_body(original_img, exclude_face=True, edge_expansion=5):
     else:
         final_mask = body_mask
 
-    # Expand the edges of the mask
-    final_mask = expand_mask(final_mask, edge_expansion)
-
     # Convert final mask from np array to PIL image
-    final_mask_pil = Image.fromarray(final_mask * 255)
+    final_mask = Image.fromarray(final_mask * 255)
 
     # Apply mask to original image
     img_rgba = img.convert('RGBA')
-    img_rgba.putalpha(final_mask_pil)
+    img_rgba.putalpha(final_mask)
 
-    return img_rgba, final_mask_pil, final_mask
+    return img_rgba, final_mask
+
+def segment_torso(original_img):
+    # Make a copy
+    img = original_img.copy()
+    
+    # Segment image
+    segments = segmenter(img)
+
+    # Create list of masks
+    segment_include = ["Upper-clothes", "Dress", "Belt", "Left-arm", "Right-arm"]
+    
+    final_mask = np.zeros((img.height, img.width), dtype=np.uint8)
+
+    for s in segments:
+        if s['label'] in segment_include:
+            final_mask = np.maximum(final_mask, s['mask'])
+
+    # Convert final mask from np array to PIL image
+    final_mask = Image.fromarray(final_mask * 255)
+
+    # Apply mask to original image
+    img_rgba = img.convert('RGBA')
+    img_rgba.putalpha(final_mask)
+
+    return img_rgba, final_mask
 
 def segment_torso(original_img):
     # This function remains unchanged
