@@ -7,13 +7,9 @@ import modules.constants as constants
 import modules.flags as flags
 import numpy as np
 import os
-import sys
-import cv2
+import traceback
 from modules.util import HWC3, resize_image
 from modules.private_logger import log
-
-from extras.inpaint_mask import generate_mask_from_image
-import traceback
 
 def virtual_try_on(clothes_image, person_image, inpaint_mask):
     try:
@@ -26,18 +22,17 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
         target_size = (512, 512)  # You can adjust this size
         clothes_image = resize_image(clothes_image, target_size[0], target_size[1])
         person_image = resize_image(person_image, target_size[0], target_size[1])
-        inpaint_mask = cv2.resize(inpaint_mask, target_size, interpolation=cv2.INTER_NEAREST)
+        inpaint_mask = resize_image(inpaint_mask, target_size[0], target_size[1])
 
         # Prepare LoRA arguments
         loras = []
         for lora in modules.config.default_loras:
-            loras.append(lora[0])
-            loras.append(lora[1])
+            loras.extend(lora)
 
         # Set up the arguments for the generation task
         args = [
             True,  # generate_image_grid
-            "A person wearing a new garment",  # prompt
+            "",  # prompt
             modules.config.default_prompt_negative,  # negative_prompt
             False,  # translate_prompts
             modules.config.default_styles,  # style_selections
@@ -126,7 +121,6 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
         print("Error in virtual_try_on:", str(e))
         traceback.print_exc()
         return f"Error: {str(e)}"
-
 
 # Example garment images (replace with actual image paths)
 example_garments = [
@@ -248,5 +242,9 @@ with gr.Blocks(css=css) as demo:
         """
     )
 
-
-demo.launch(share=True)
+if __name__ == "__main__":
+    try:
+        demo.launch(share=True)
+    except Exception as e:
+        print(f"An error occurred while launching the demo: {str(e)}")
+        traceback.print_exc()
