@@ -114,7 +114,7 @@ example_garments = [
     "images/first.png",
     "images/second.png",
     "images/third.png",
-    "images/fourth.png",
+    "images/third.png",
 ]
 
 css = """
