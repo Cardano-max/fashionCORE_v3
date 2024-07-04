@@ -6,6 +6,8 @@ import modules.async_worker as worker
 import modules.constants as constants
 import modules.flags as flags
 import numpy as np
+import asyncio
+
 
 from extras.inpaint_mask import generate_mask_from_image
 import traceback
@@ -107,9 +109,13 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
             time.sleep(0.1)
 
         if isinstance(task.results, list) and len(task.results) > 0:
-            return task.results[0]  # Return the first (and only) generated image
-        else:
-            return "Error: No results generated"
+            result = task.results[0]
+            if isinstance(result, str):  # If it's a file path
+                return result
+            elif isinstance(result, np.ndarray):  # If it's a numpy array
+                return result
+            else:
+                return "Error: Unexpected result format"
 
     except Exception as e:
         print("Error in virtual_try_on:", str(e))
@@ -204,18 +210,23 @@ with gr.Blocks(css=css) as demo:
 
     example_garment_gallery.select(select_example_garment, None, clothes_input)
 
-    def process_virtual_try_on(clothes_image, person_image):
+
+    async def process_virtual_try_on_async(clothes_image, person_image):
         inpaint_image = person_image['image']
         inpaint_mask = person_image['mask']
         
-        result = virtual_try_on(clothes_image, inpaint_image, inpaint_mask)
+        with gr.Progress() as progress:
+            progress(0, desc="Starting process...")
+            result = await asyncio.to_thread(virtual_try_on, clothes_image, inpaint_image, inpaint_mask)
+            progress(1, desc="Process complete")
+        
         if isinstance(result, str):  # Error occurred
-            return gr.update(value=None, visible=False), gr.update(value=result, visible=True)
+            return None, result
         else:  # Successfully generated image
-            return gr.update(value=result, visible=True), gr.update(value="", visible=False)
+            return result, ""
 
     try_on_button.click(
-        process_virtual_try_on,
+        process_virtual_try_on_async,
         inputs=[clothes_input, person_input],
         outputs=[try_on_output, error_output]
     )
