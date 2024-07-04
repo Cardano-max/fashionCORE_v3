@@ -46,7 +46,7 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
         # Inpaint settings
         inpaint_input_image.update(value={'image': person_image, 'mask': inpaint_mask})
         inpaint_mode.update(value=modules.flags.inpaint_option_modify)
-        inpaint_additional_prompt.update(value="A person wearing the clothes from the reference image")
+        inpaint_additional_prompt.update(value="")
 
         # Mixing Image Prompt and Inpaint
         mixing_image_prompt_and_inpaint.update(value=True)
@@ -81,7 +81,7 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
             clothes_image,  # uov_input_image
             [],  # outpaint_selections
             {'image': person_image, 'mask': inpaint_mask},  # inpaint_input_image
-            "A person wearing the clothes from the reference image",  # inpaint_additional_prompt
+            "",  # inpaint_additional_prompt
             inpaint_mask,  # inpaint_mask_image_upload
             False,  # disable_preview
             False,  # disable_intermediate_results
