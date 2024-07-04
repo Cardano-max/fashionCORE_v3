@@ -138,31 +138,7 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
         traceback.print_exc()
         return f"Error: {str(e)}"
 
-# Update the Gradio interface
-with gr.Tab("Virtual Try-On"):
-    with gr.Row():
-        clothes_input = gr.Image(label="Clothes Image", source='upload', type='numpy')
-        person_input = gr.Image(label="Person Image", source='upload', type='numpy', tool='sketch', elem_id='inpaint_canvas')
-    try_on_button = gr.Button("Try On")
-    try_on_output = gr.Image(label="Try-On Result")
-    error_output = gr.Textbox(label="Error", visible=False)
 
-    def process_virtual_try_on(clothes_image, person_image):
-        # Extract the image and mask from the person_input
-        inpaint_image = person_image['image']
-        inpaint_mask = person_image['mask']
-        
-        result = virtual_try_on(clothes_image, inpaint_image, inpaint_mask)
-        if isinstance(result, str):  # Error occurred
-            return gr.update(value=None, visible=False), gr.update(value=result, visible=True)
-        else:  # Successfully generated image
-            return gr.update(value=result, visible=True), gr.update(value="", visible=False)
-
-    try_on_button.click(
-        process_virtual_try_on,
-        inputs=[clothes_input, person_input],
-        outputs=[try_on_output, error_output]
-    )
 
 
 
@@ -263,19 +239,26 @@ with shared.gradio_root:
                                      value=["assets/favicon.png"],
                                      preview=True)
 
-            # Add this part to your existing gradio interface
-                with gr.Tab("Virtual Try-On"):
-                    with gr.Row():
-                        clothes_input = gr.Image(label="Clothes Image", source='upload', type='numpy')
-                        person_input = gr.Image(label="Person Image", source='upload', type='numpy', tool='sketch', elem_id='inpaint_canvas')
-                    try_on_button = gr.Button("Try On")
-                    try_on_output = gr.Gallery(label="Try-On Result")
+            with gr.Tab("Virtual Try-On"):
+                with gr.Row():
+                    clothes_input = gr.Image(label="Clothes Image", source='upload', type='numpy')
+                    person_input = gr.Image(label="Person Image", source='upload', type='numpy')
+                try_on_button = gr.Button("Try On")
+                try_on_output = gr.Image(label="Try-On Result")
+                error_output = gr.Textbox(label="Error", visible=False)
 
-                    try_on_button.click(
-                        virtual_try_on,
-                        inputs=[clothes_input, person_input],
-                        outputs=[try_on_output]
-                    )
+                def process_virtual_try_on(clothes_image, person_image):
+                    result = virtual_try_on(clothes_image, person_image)
+                    if isinstance(result, str):  # Error occurred
+                        return gr.update(value=None, visible=False), gr.update(value=result, visible=True)
+                    else:  # Successfully generated image
+                        return gr.update(value=result, visible=True), gr.update(value="", visible=False)
+
+                try_on_button.click(
+                    process_virtual_try_on,
+                    inputs=[clothes_input, person_input],
+                    outputs=[try_on_output, error_output]
+                )
                     
             with gr.Tab("rembg"):
                 with gr.Column(scale=1):
