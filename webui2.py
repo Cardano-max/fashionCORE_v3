@@ -116,13 +116,12 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
         traceback.print_exc()
         return f"Error: {str(e)}"
 
-        
+
 # Example garment images (replace with actual image paths)
 example_garments = [
-    "path/to/tshirt1.jpg",
-    "path/to/tshirt2.jpg",
-    "path/to/hoodie1.jpg",
-    "path/to/jacket1.jpg",
+    "fashionCORE_v3/images/first.png",
+    "fashionCORE_v3/images/second.png",
+    "fashionCORE_v3/images/third.png",
 ]
 
 css = """
