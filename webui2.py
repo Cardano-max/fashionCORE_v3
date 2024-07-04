@@ -8,25 +8,29 @@ import modules.constants as constants
 import modules.flags as flags
 import modules.html
 import modules.async_worker as worker
+import ldm_patched.modules.model_management
+import os
+import json
 
-# Assuming these functions are defined elsewhere in your codebase
 from modules.util import HWC3
 from modules.private_logger import get_current_html_path
+from modules.sdxl_styles import legal_style_names
+from modules.ui_gradio_extensions import reload_javascript
 
 # Sample garment images (replace these with actual paths to your merchandise images)
 SAMPLE_GARMENTS = [
     "images/first.png",
     "images/second.png",
     "images/third.png",
-    "images/third.png",
+    "images/first.png",
 ]
 
-def virtual_try_on(clothes_image, person_image, inpaint_mask):
+def virtual_try_on(clothes_image, person_image):
     try:
         # Convert images to numpy arrays if they're not already
         clothes_image = np.array(clothes_image)
-        person_image = np.array(person_image)
-        inpaint_mask = np.array(inpaint_mask)
+        person_image = np.array(person_image['image'])
+        inpaint_mask = np.array(person_image['mask'])
 
         # Prepare LoRA arguments
         loras = []
@@ -128,6 +132,8 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
         return f"Error: {str(e)}"
 
 def create_arbi_try_on_interface():
+    reload_javascript()
+    
     with gr.Blocks(css=modules.html.css, theme="ehristoforu/Indigo_Theme") as arbi_try_on:
         gr.HTML("""
             <h1 style="text-align: center; margin-bottom: 1rem;">Welcome to ArbiTryOn</h1>
@@ -173,14 +179,10 @@ def create_arbi_try_on_interface():
             return SAMPLE_GARMENTS[evt.index]
 
         def process_virtual_try_on(clothes_image, person_image):
-            inpaint_image = person_image['image']
-            inpaint_mask = person_image['mask']
-            
-            result = virtual_try_on(clothes_image, inpaint_image, inpaint_mask)
+            result = virtual_try_on(clothes_image, person_image)
             if isinstance(result, str):  # Error occurred
                 return gr.update(value=None, visible=False), gr.update(value=result, visible=True)
             else:  # Successfully generated image
-                output_path = get_current_html_path(result)
                 return gr.update(value=result, visible=True), gr.update(value="", visible=False)
 
         garment_gallery.select(update_clothes_input, None, clothes_input)
@@ -191,6 +193,10 @@ def create_arbi_try_on_interface():
         )
 
     return arbi_try_on
+
+# Initialize necessary components
+ldm_patched.modules.model_management.initialize()
+modules.config.update_all_model_names()
 
 # Launch the interface
 demo = create_arbi_try_on_interface()
