@@ -128,11 +128,9 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
             return json.dumps({"success": False, "error": "No results generated"})
 
     except Exception as e:
-        print(f"An error occurred during processing: {str(e)}")
+        print("Error in virtual_try_on:", str(e))
         traceback.print_exc()
-        async_task.yields.append(['error', str(e)])
-    finally:
-        async_task.processing = False
+        return json.dumps({"success": False, "error": str(e)})
 
 # Example garment images (replace with actual image paths)
 example_garments = [
