@@ -20,7 +20,6 @@ def custom_exception_handler(exc_type, exc_value, exc_traceback):
 
 sys.excepthook = custom_exception_handler
 
-
 def virtual_try_on(clothes_image, person_image, inpaint_mask):
     try:
         # Convert images to numpy arrays if they're not already
@@ -122,15 +121,15 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
         while task.processing:
             time.sleep(0.1)
 
-        if isinstance(task.results, list) and len(task.results) > 0:
-            return json.dumps({"success": True, "image_path": task.results[0]})
+        if task.results and isinstance(task.results, list) and len(task.results) > 0:
+            return {"success": True, "image_path": task.results[0]}
         else:
-            return json.dumps({"success": False, "error": "No results generated"})
+            return {"success": False, "error": "No results generated"}
 
     except Exception as e:
         print("Error in virtual_try_on:", str(e))
         traceback.print_exc()
-        return json.dumps({"success": False, "error": str(e)})
+        return {"success": False, "error": str(e)}
 
 # Example garment images (replace with actual image paths)
 example_garments = [
@@ -230,14 +229,12 @@ with gr.Blocks(css=css) as demo:
             return gr.update(value=None, visible=False), gr.update(value="Please draw a mask on the person image to indicate where to apply the garment.", visible=True)
         
         result = virtual_try_on(clothes_image, inpaint_image, inpaint_mask)
-        try:
-            result_json = json.loads(result)
-            if result_json['success']:
-                return gr.update(value=result_json['image_path'], visible=True), gr.update(value="", visible=False)
-            else:
-                return gr.update(value=None, visible=False), gr.update(value=result_json['error'], visible=True)
-        except json.JSONDecodeError:
-            return gr.update(value=None, visible=False), gr.update(value="Server returned an invalid response.", visible=True)
+        
+        if result['success']:
+            return gr.update(value=result['image_path'], visible=True), gr.update(value="", visible=False)
+        else:
+            return gr.update(value=None, visible=False), gr.update(value=result['error'], visible=True)
+
 
     try_on_button.click(
         process_virtual_try_on,
