@@ -55,8 +55,8 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
             {'image': person_image, 'mask': inpaint_mask},  # inpaint_input_image
             "Wearing a new garment",  # inpaint_additional_prompt
             inpaint_mask,  # inpaint_mask_image_upload
-            False,  # disable_preview
-            False,  # disable_intermediate_results
+            True,  # disable_preview
+            True,  # disable_intermediate_results
             modules.config.default_black_out_nsfw,  # black_out_nsfw
             1.5,  # adm_scaler_positive
             0.8,  # adm_scaler_negative
