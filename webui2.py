@@ -25,12 +25,12 @@ SAMPLE_GARMENTS = [
     "images/first.png",
 ]
 
-def virtual_try_on(clothes_image, person_image):
+def virtual_try_on(clothes_image, person_image, inpaint_mask):
     try:
         # Convert images to numpy arrays if they're not already
         clothes_image = np.array(clothes_image)
-        person_image = np.array(person_image['image'])
-        inpaint_mask = np.array(person_image['mask'])
+        person_image = np.array(person_image)
+        inpaint_mask = np.array(inpaint_mask)
 
         # Prepare LoRA arguments
         loras = []
@@ -179,7 +179,11 @@ def create_arbi_try_on_interface():
             return SAMPLE_GARMENTS[evt.index]
 
         def process_virtual_try_on(clothes_image, person_image):
-            result = virtual_try_on(clothes_image, person_image)
+            # Extract the image and mask from the person_input
+            inpaint_image = person_image['image']
+            inpaint_mask = person_image['mask']
+            
+            result = virtual_try_on(clothes_image, inpaint_image, inpaint_mask)
             if isinstance(result, str):  # Error occurred
                 return gr.update(value=None, visible=False), gr.update(value=result, visible=True)
             else:  # Successfully generated image
