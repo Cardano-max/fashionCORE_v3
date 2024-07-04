@@ -251,7 +251,7 @@ with gr.Blocks(css=css) as demo:
             else:
                 return gr.update(value=None, visible=False), gr.update(visible=False), gr.update(value=f"Generated image not found at {image_path}", visible=True)
         else:
-            return gr.update(value=None, visible=False), gr.update(visible=False), gr.update(value=result['error'], visible=True)
+            return gr.update(value=None, visible=False), gr.update(visible=False), gr.update(value=result['NO'], visible=True)
 
     try_on_button.click(
         process_virtual_try_on,
