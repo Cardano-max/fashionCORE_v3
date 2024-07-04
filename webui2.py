@@ -11,6 +11,7 @@ import modules.async_worker as worker
 import ldm_patched.modules.model_management
 import os
 import json
+import requests
 
 from modules.util import HWC3
 from modules.private_logger import get_current_html_path
@@ -22,7 +23,7 @@ SAMPLE_GARMENTS = [
     "images/first.png",
     "images/second.png",
     "images/third.png",
-    "images/first.png",
+    "images/third.png",
 ]
 
 def virtual_try_on(clothes_image, person_image):
@@ -179,11 +180,17 @@ def create_arbi_try_on_interface():
             return SAMPLE_GARMENTS[evt.index]
 
         def process_virtual_try_on(clothes_image, person_image):
-            result = virtual_try_on(clothes_image, person_image)
-            if isinstance(result, str):  # Error occurred
-                return gr.update(value=None, visible=False), gr.update(value=result, visible=True)
-            else:  # Successfully generated image
-                return gr.update(value=result, visible=True), gr.update(value="", visible=False)
+            try:
+                result = virtual_try_on(clothes_image, person_image)
+                if isinstance(result, str) and result.startswith("Error"):
+                    return gr.update(value=None, visible=False), gr.update(value=result, visible=True)
+                else:
+                    return gr.update(value=result, visible=True), gr.update(value="", visible=False)
+            except Exception as e:
+                error_message = f"An error occurred: {str(e)}"
+                print(error_message)
+                traceback.print_exc()
+                return gr.update(value=None, visible=False), gr.update(value=error_message, visible=True)
 
         garment_gallery.select(update_clothes_input, None, clothes_input)
         try_on_button.click(
@@ -194,10 +201,37 @@ def create_arbi_try_on_interface():
 
     return arbi_try_on
 
-# Initialize necessary components
-ldm_patched.modules.model_management.initialize()
-modules.config.update_all_model_names()
+def load_models():
+    try:
+        print("Initializing model management...")
+        ldm_patched.modules.model_management.initialize()
+        print("Updating model names...")
+        modules.config.update_all_model_names()
+        print("Models loaded successfully.")
+    except Exception as e:
+        print(f"Error loading models: {str(e)}")
+        traceback.print_exc()
 
-# Launch the interface
-demo = create_arbi_try_on_interface()
-demo.launch(share=True)
+def check_model_files():
+    model_dir = os.path.join(os.path.dirname(__file__), '..', 'models')
+    expected_files = ['model1.safetensors', 'model2.safetensors']  # Add your expected model files here
+    missing_files = []
+    
+    for file in expected_files:
+        if not os.path.exists(os.path.join(model_dir, file)):
+            missing_files.append(file)
+    
+    if missing_files:
+        print(f"Warning: The following model files are missing: {', '.join(missing_files)}")
+    else:
+        print("All expected model files are present.")
+
+def main():
+    print("Starting ArbiTryOn...")
+    check_model_files()
+    load_models()
+    demo = create_arbi_try_on_interface()
+    demo.launch(share=True)
+
+if __name__ == "__main__":
+    main()
