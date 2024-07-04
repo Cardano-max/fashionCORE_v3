@@ -32,7 +32,7 @@ from modules.util import is_json
 from extras.inpaint_mask import generate_mask_from_image
 import traceback
 
-def virtual_try_on(clothes_image, person_image):
+def virtual_try_on(clothes_image, person_image, inpaint_mask):
     try:
         # Setting up the required inputs and configurations
         advanced_checkbox.update(value=True)
@@ -44,24 +44,9 @@ def virtual_try_on(clothes_image, person_image):
         ip_weights[0].update(value=1.0)  # Default value
 
         # Inpaint settings
-        inpaint_input_image.update(value=person_image)
+        inpaint_input_image.update(value={'image': person_image, 'mask': inpaint_mask})
         inpaint_mode.update(value=modules.flags.inpaint_option_modify)
         inpaint_additional_prompt.update(value="A person wearing the clothes from the reference image")
-
-        # Enable mask upload
-        inpaint_mask_upload_checkbox.update(value=True)
-
-        # Create a simple mask covering the torso area
-        height, width = person_image.shape[:2]
-        mask = np.zeros((height, width), dtype=np.uint8)
-        top = int(height * 0.2)  # Adjust these values as needed
-        bottom = int(height * 0.8)
-        left = int(width * 0.2)
-        right = int(width * 0.8)
-        mask[top:bottom, left:right] = 255
-
-        # Update the mask
-        inpaint_mask_image.update(value=mask)
 
         # Mixing Image Prompt and Inpaint
         mixing_image_prompt_and_inpaint.update(value=True)
@@ -95,9 +80,9 @@ def virtual_try_on(clothes_image, person_image):
             flags.disabled,  # uov_method
             clothes_image,  # uov_input_image
             [],  # outpaint_selections
-            {'image': person_image, 'mask': mask},  # inpaint_input_image
+            {'image': person_image, 'mask': inpaint_mask},  # inpaint_input_image
             "A person wearing the clothes from the reference image",  # inpaint_additional_prompt
-            mask,  # inpaint_mask_image_upload
+            inpaint_mask,  # inpaint_mask_image_upload
             False,  # disable_preview
             False,  # disable_intermediate_results
             modules.config.default_black_out_nsfw,  # black_out_nsfw
@@ -152,7 +137,6 @@ def virtual_try_on(clothes_image, person_image):
         print("Error in virtual_try_on:", str(e))
         traceback.print_exc()
         return f"Error: {str(e)}"
-
 
 
 
@@ -257,7 +241,7 @@ with shared.gradio_root:
                 with gr.Tab("Virtual Try-On"):
                     with gr.Row():
                         clothes_input = gr.Image(label="Clothes Image", source='upload', type='numpy')
-                        person_input = gr.Image(label="Person Image", source='upload', type='numpy')
+                        person_input = gr.Image(label="Person Image", source='upload', type='numpy', tool='sketch', elem_id='inpaint_canvas')
                     try_on_button = gr.Button("Try On")
                     try_on_output = gr.Gallery(label="Try-On Result")
 
