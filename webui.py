@@ -57,6 +57,7 @@ from modules.flags import Performance
 from PIL import Image
 from SegBody import segment_body
 import numpy as np
+import matplotlib.pyplot as plt
 
 def virtual_try_on(clothes_image, person_image):
     try:
@@ -70,15 +71,14 @@ def virtual_try_on(clothes_image, person_image):
         clothes_image = clothes_image.resize((512, 512))
         person_image = person_image.resize((512, 512))
 
-        # Generate mask for the person image
-        seg_image, mask_image = segment_body(person_image, neck_inclusion=0.7, edge_smoothing=5, edge_expansion=3)
+        # Generate mask for the person image, excluding the face
+        seg_image, mask_image_pil, mask_array = segment_body(person_image, exclude_face=True, edge_expansion=5)
         
         # Convert mask to numpy array
-        mask = np.array(mask_image)
+        mask = np.array(mask_image_pil)
         
         # Normalize mask to 0-255 range
         mask = (mask > 0).astype(np.uint8) * 255
-
 
         # Prepare LoRA arguments
         loras = []
