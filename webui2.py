@@ -1,6 +1,7 @@
 import gradio as gr
 import random
 import time
+import os
 import numpy as np
 import modules.config
 import modules.async_worker as worker
@@ -11,53 +12,92 @@ from modules.util import HWC3, resize_image
 def virtual_try_on(clothes_image, person_image):
     try:
         clothes_image = HWC3(clothes_image)
-        person_image_data = person_image['image'] if isinstance(person_image, dict) else person_image
-        person_image = HWC3(person_image_data)
         
-        # Assume mask is not needed for now, remove if causing issues
-        # inpaint_mask = HWC3(person_image['mask'])[:, :, 0] if isinstance(person_image, dict) and 'mask' in person_image else np.zeros_like(person_image)[:,:,0]
+        # Check if person_image is a dictionary (from sketch tool) or a direct image
+        if isinstance(person_image, dict):
+            inpaint_image = HWC3(person_image['image'])
+            inpaint_mask = HWC3(person_image['mask'])[:, :, 0]
+        else:
+            inpaint_image = HWC3(person_image)
+            inpaint_mask = np.zeros_like(inpaint_image)[:, :, 0]
 
         target_size = (512, 512)
         clothes_image = resize_image(clothes_image, target_size[0], target_size[1])
-        person_image = resize_image(person_image, target_size[0], target_size[1])
+        inpaint_image = resize_image(inpaint_image, target_size[0], target_size[1])
+        inpaint_mask = resize_image(inpaint_mask, target_size[0], target_size[1])
+
+        loras = []
+        for lora in modules.config.default_loras:
+            loras.extend(lora)
 
         args = [
-            True,  # generate_image_grid
-            "A person wearing new clothes",  # prompt
-            modules.config.default_prompt_negative,  # negative_prompt
-            False,  # translate_prompts
-            modules.config.default_styles,  # style_selections
-            modules.config.default_performance,  # performance_selection
-            modules.config.default_aspect_ratio,  # aspect_ratios_selection
-            1,  # image_number
-            modules.config.default_output_format,  # output_format
-            random.randint(constants.MIN_SEED, constants.MAX_SEED),  # image_seed
-            modules.config.default_sample_sharpness,  # sharpness
-            modules.config.default_cfg_scale,  # guidance_scale
-            modules.config.default_base_model_name,  # base_model_name
-            modules.config.default_refiner_model_name,  # refiner_model_name
-            modules.config.default_refiner_switch,  # refiner_switch
+            True,
+            "A person wearing new clothes",
+            modules.config.default_prompt_negative,
+            False,
+            modules.config.default_styles,
+            modules.config.default_performance,
+            modules.config.default_aspect_ratio,
+            1,
+            modules.config.default_output_format,
+            random.randint(constants.MIN_SEED, constants.MAX_SEED),
+            modules.config.default_sample_sharpness,
+            modules.config.default_cfg_scale,
+            modules.config.default_base_model_name,
+            modules.config.default_refiner_model_name,
+            modules.config.default_refiner_switch,
+        ] + loras + [
+            True,
+            "inpaint",
+            flags.disabled,
+            None,
+            [],
+            {'image': inpaint_image, 'mask': inpaint_mask},
+            "Wearing a new garment",
+            inpaint_mask,
+            False,
+            False,
+            modules.config.default_black_out_nsfw,
+            1.5,
+            0.8,
+            0.3,
+            modules.config.default_cfg_tsnr,
+            modules.config.default_sampler,
+            modules.config.default_scheduler,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            modules.config.default_overwrite_upscale,
+            False,
+            True,
+            False,
+            False,
+            100,
+            200,
+            flags.refiner_swap_method,
+            0.5,
+            False,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            False,
+            False,
+            modules.config.default_inpaint_engine_version,
+            1.0,
+            0.618,
+            True,
+            False,
+            0,
+            modules.config.default_save_metadata_to_images,
+            modules.config.default_metadata_scheme,
+            clothes_image,
+            0.6,
+            0.5,
+            flags.default_ip,
         ]
-
-        # Add LoRA configs
-        for lora in modules.config.default_loras:
-            args.extend(lora)
-
-        # Add more arguments as needed
-        args.extend([
-            True,  # input_image_checkbox
-            "inpaint",  # current_tab
-            flags.disabled,  # uov_method
-            None,  # uov_input_image
-            [],  # outpaint_selections
-            {'image': person_image},  # inpaint_input_image
-            "Wearing a new garment",  # inpaint_additional_prompt
-            None,  # inpaint_mask_image_upload
-            False,  # disable_preview
-            False,  # disable_intermediate_results
-            modules.config.default_black_out_nsfw,  # black_out_nsfw
-            clothes_image,  # ip_adapter_image
-        ])
 
         task = worker.AsyncTask(args=args)
         worker.async_tasks.append(task)
@@ -83,18 +123,77 @@ example_garments = [
     "images/third.png",
 ]
 
-with gr.Blocks() as demo:
-    gr.HTML("<h1>ArbiTryOn - Virtual Try-On System</h1>")
+css = """
+body {
+    background-color: #f0f0f0;
+    font-family: Arial, sans-serif;
+}
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+.header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+.title {
+    font-size: 36px;
+    color: #333;
+    margin-bottom: 10px;
+}
+.subtitle {
+    font-size: 18px;
+    color: #666;
+}
+.example-garments {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 20px;
+}
+.example-garment {
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+.example-garment:hover {
+    transform: scale(1.05);
+}
+.try-on-button {
+    background-color: #4CAF50;
+    color: white;
+    padding: 10px 20px;
+    font-size: 18px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+.try-on-button:hover {
+    background-color: #45a049;
+}
+"""
+
+with gr.Blocks(css=css) as demo:
+    gr.HTML(
+        """
+        <div class="header">
+            <h1 class="title">ArbiTryOn</h1>
+            <p class="subtitle">Experience Arbisoft's merchandise with our cutting-edge virtual try-on system!</p>
+        </div>
+        """
+    )
 
     with gr.Row():
-        with gr.Column():
-            clothes_input = gr.Image(label="Garment Image", source="upload", type="numpy")
-            example_garment_gallery = gr.Gallery(value=example_garments, columns=2, rows=2, label="Example Garments")
-        
-        with gr.Column():
-            person_input = gr.Image(label="Your Photo", source="upload", type="numpy")
+        with gr.Column(scale=1):
+            gr.Markdown("### Choose a Garment")
+            example_garment_gallery = gr.Gallery(value=example_garments, columns=2, rows=2, label="Example Garments", elem_class="example-garments")
+            clothes_input = gr.Image(label="Selected Garment", source="upload", type="numpy")
 
-    try_on_button = gr.Button("Try It On!")
+        with gr.Column(scale=1):
+            gr.Markdown("### Upload Your Photo")
+            person_input = gr.Image(label="Your Photo", source="upload", type="numpy", tool="sketch", elem_id="inpaint_canvas")
+
+    try_on_button = gr.Button("Try It On!", elem_classes="try-on-button")
     try_on_output = gr.Image(label="Virtual Try-On Result")
 
     def select_example_garment(evt: gr.SelectData):
@@ -106,6 +205,17 @@ with gr.Blocks() as demo:
         virtual_try_on,
         inputs=[clothes_input, person_input],
         outputs=[try_on_output]
+    )
+
+    gr.Markdown(
+        """
+        ## How It Works
+        1. Choose a garment from our examples or upload your own.
+        2. Upload a photo of yourself and use the brush tool to indicate where you want the garment placed.
+        3. Click "Try It On!" to see the magic happen!
+
+        Experience the future of online shopping with ArbiTryOn - where technology meets style!
+        """
     )
 
 demo.launch(share=True)
