@@ -198,9 +198,7 @@ def create_arbi_try_on_interface():
 
     return arbi_try_on
 
-# Initialize necessary components
-ldm_patched.modules.model_management.initialize()
-modules.config.update_all_model_names()
+
 
 # Launch the interface
 demo = create_arbi_try_on_interface()
