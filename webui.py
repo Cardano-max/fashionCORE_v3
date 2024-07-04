@@ -34,22 +34,10 @@ import traceback
 
 def virtual_try_on(clothes_image, person_image, inpaint_mask):
     try:
-        # Setting up the required inputs and configurations
-        advanced_checkbox.update(value=True)
-
-        # Image Prompt settings for the clothes image
-        ip_images[0].update(value=clothes_image)
-        ip_advanced.update(value=True)
-        ip_stops[0].update(value=0.5)  # Default value
-        ip_weights[0].update(value=1.0)  # Default value
-
-        # Inpaint settings
-        inpaint_input_image.update(value={'image': person_image, 'mask': inpaint_mask})
-        inpaint_mode.update(value=modules.flags.inpaint_option_modify)
-        inpaint_additional_prompt.update(value="")
-
-        # Mixing Image Prompt and Inpaint
-        mixing_image_prompt_and_inpaint.update(value=True)
+        # Convert images to numpy arrays if they're not already
+        clothes_image = np.array(clothes_image)
+        person_image = np.array(person_image)
+        inpaint_mask = np.array(inpaint_mask)
 
         # Prepare LoRA arguments
         loras = []
@@ -57,14 +45,14 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
             loras.append(lora[0])
             loras.append(lora[1])
 
-        # Generating the final image
+        # Set up the arguments for the generation task
         args = [
             True,  # generate_image_grid
-            "A person wearing the clothes from the reference image",  # prompt
-            "Unrealistic, blurry, low quality",  # negative_prompt
+            "",  # prompt (empty as per manual metadata)
+            modules.config.default_prompt_negative,  # negative_prompt
             False,  # translate_prompts
-            ["Fooocus V2", "Fooocus Enhance", "Fooocus Sharp"],  # style_selections
-            flags.Performance.QUALITY.value,  # performance_selection
+            modules.config.default_styles,  # style_selections
+            modules.config.default_performance,  # performance_selection
             modules.config.default_aspect_ratio,  # aspect_ratios_selection
             1,  # image_number
             modules.config.default_output_format,  # output_format
@@ -78,7 +66,7 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
             True,  # input_image_checkbox
             "inpaint",  # current_tab
             flags.disabled,  # uov_method
-            clothes_image,  # uov_input_image
+            None,  # uov_input_image
             [],  # outpaint_selections
             {'image': person_image, 'mask': inpaint_mask},  # inpaint_input_image
             "",  # inpaint_additional_prompt
@@ -86,19 +74,19 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
             False,  # disable_preview
             False,  # disable_intermediate_results
             modules.config.default_black_out_nsfw,  # black_out_nsfw
-            1.0,  # adm_scaler_positive
-            1.0,  # adm_scaler_negative
-            0.0,  # adm_scaler_end
+            1.5,  # adm_scaler_positive
+            0.8,  # adm_scaler_negative
+            0.3,  # adm_scaler_end
             modules.config.default_cfg_tsnr,  # adaptive_cfg
             modules.config.default_sampler,  # sampler_name
             modules.config.default_scheduler,  # scheduler_name
-            modules.config.default_overwrite_step,  # overwrite_step
-            modules.config.default_overwrite_switch,  # overwrite_switch
+            -1,  # overwrite_step
+            -1,  # overwrite_switch
             -1,  # overwrite_width
             -1,  # overwrite_height
             -1,  # overwrite_vary_strength
-            modules.config.default_overwrite_upscale,  # overwrite_upscale
-            True,  # mixing_image_prompt_and_vary_upscale
+            modules.config.default_overwrite_upscale,  # overwrite_upscale_strength
+            False,  # mixing_image_prompt_and_vary_upscale
             True,  # mixing_image_prompt_and_inpaint
             False,  # debugging_cn_preprocessor
             False,  # skipping_cn_preprocessor
@@ -114,7 +102,7 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
             False,  # debugging_inpaint_preprocessor
             False,  # inpaint_disable_initial_latent
             modules.config.default_inpaint_engine_version,  # inpaint_engine
-            0.8,  # inpaint_strength
+            1.0,  # inpaint_strength
             0.618,  # inpaint_respective_field
             True,  # inpaint_mask_upload_checkbox
             False,  # invert_mask_checkbox
@@ -123,7 +111,15 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
             modules.config.default_metadata_scheme,  # metadata_scheme
         ]
 
-        task = worker.AsyncTask(args)
+        # Add Image Prompt for clothes image
+        args.extend([
+            clothes_image,  # ip_image
+            0.6,  # ip_stop
+            0.5,  # ip_weight
+            flags.default_ip,  # ip_type
+        ])
+
+        task = worker.AsyncTask(args=args)
         worker.async_tasks.append(task)
 
         # Wait for the task to complete
@@ -132,11 +128,41 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
         while task.processing:
             time.sleep(0.1)
 
-        return task.results
+        if isinstance(task.results, list) and len(task.results) > 0:
+            return task.results[0]  # Return the first (and only) generated image
+        else:
+            return "Error: No results generated"
+
     except Exception as e:
         print("Error in virtual_try_on:", str(e))
         traceback.print_exc()
         return f"Error: {str(e)}"
+
+# Update the Gradio interface
+with gr.Tab("Virtual Try-On"):
+    with gr.Row():
+        clothes_input = gr.Image(label="Clothes Image", source='upload', type='numpy')
+        person_input = gr.Image(label="Person Image", source='upload', type='numpy', tool='sketch', elem_id='inpaint_canvas')
+    try_on_button = gr.Button("Try On")
+    try_on_output = gr.Image(label="Try-On Result")
+    error_output = gr.Textbox(label="Error", visible=False)
+
+    def process_virtual_try_on(clothes_image, person_image):
+        # Extract the image and mask from the person_input
+        inpaint_image = person_image['image']
+        inpaint_mask = person_image['mask']
+        
+        result = virtual_try_on(clothes_image, inpaint_image, inpaint_mask)
+        if isinstance(result, str):  # Error occurred
+            return gr.update(value=None, visible=False), gr.update(value=result, visible=True)
+        else:  # Successfully generated image
+            return gr.update(value=result, visible=True), gr.update(value="", visible=False)
+
+    try_on_button.click(
+        process_virtual_try_on,
+        inputs=[clothes_input, person_input],
+        outputs=[try_on_output, error_output]
+    )
 
 
 
