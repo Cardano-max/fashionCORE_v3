@@ -37,33 +37,31 @@ def virtual_try_on(clothes_image, person_image):
         # Setting up the required inputs and configurations
         advanced_checkbox.update(value=True)
 
-        # Image Prompt settings
+        # Image Prompt settings for the clothes image
         ip_images[0].update(value=clothes_image)
         ip_advanced.update(value=True)
         ip_stops[0].update(value=0.5)  # Default value
         ip_weights[0].update(value=1.0)  # Default value
 
-        # Inpaint/Outpaint settings
+        # Inpaint settings
         inpaint_input_image.update(value=person_image)
-        inpaint_mask_model.update(value='sam')
-        inpaint_mask_sam_prompt_text.update(value='Clothes')
+        inpaint_mode.update(value=modules.flags.inpaint_option_modify)
+        inpaint_additional_prompt.update(value="A person wearing the clothes from the reference image")
+
+        # Enable mask upload
         inpaint_mask_upload_checkbox.update(value=True)
 
-        # Generate mask
-        mask = generate_mask_from_image(
-            person_image,
-            'sam',
-            {
-                'sam_prompt_text': 'Clothes',
-                'sam_model': 'sam_vit_b_01ec64',
-                'sam_quant': False,
-                'box_threshold': 0.3,
-                'text_threshold': 0.25
-            }
-        )
-        
-        if mask is None:
-            return "Error in generating mask."
+        # Create a simple mask covering the torso area
+        height, width = person_image.shape[:2]
+        mask = np.zeros((height, width), dtype=np.uint8)
+        top = int(height * 0.2)  # Adjust these values as needed
+        bottom = int(height * 0.8)
+        left = int(width * 0.2)
+        right = int(width * 0.8)
+        mask[top:bottom, left:right] = 255
+
+        # Update the mask
+        inpaint_mask_image.update(value=mask)
 
         # Mixing Image Prompt and Inpaint
         mixing_image_prompt_and_inpaint.update(value=True)
@@ -98,7 +96,7 @@ def virtual_try_on(clothes_image, person_image):
             clothes_image,  # uov_input_image
             [],  # outpaint_selections
             {'image': person_image, 'mask': mask},  # inpaint_input_image
-            "",  # inpaint_additional_prompt
+            "A person wearing the clothes from the reference image",  # inpaint_additional_prompt
             mask,  # inpaint_mask_image_upload
             False,  # disable_preview
             False,  # disable_intermediate_results
@@ -131,7 +129,7 @@ def virtual_try_on(clothes_image, person_image):
             False,  # debugging_inpaint_preprocessor
             False,  # inpaint_disable_initial_latent
             modules.config.default_inpaint_engine_version,  # inpaint_engine
-            1.0,  # inpaint_strength
+            0.8,  # inpaint_strength
             0.618,  # inpaint_respective_field
             True,  # inpaint_mask_upload_checkbox
             False,  # invert_mask_checkbox
