@@ -10,7 +10,7 @@ import modules.async_worker as worker
 import modules.constants as constants
 import modules.flags as flags
 from modules.util import HWC3, resize_image
-from modules.private_logger import log
+from modules.private_logger import get_current_html_path
 
 def custom_exception_handler(exc_type, exc_value, exc_traceback):
     print("An unhandled exception occurred:")
@@ -179,6 +179,23 @@ body {
 .try-on-button:hover {
     background-color: #45a049;
 }
+.result-links {
+    margin-top: 20px;
+    text-align: center;
+}
+.result-links a {
+    display: inline-block;
+    margin: 10px;
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    transition: background-color 0.3s ease;
+}
+.result-links a:hover {
+    background-color: #45a049;
+}
 """
 
 with gr.Blocks(css=css) as demo:
@@ -203,7 +220,7 @@ with gr.Blocks(css=css) as demo:
 
     try_on_button = gr.Button("Try It On!", elem_classes="try-on-button")
     try_on_output = gr.Image(label="Virtual Try-On Result")
-    image_link = gr.HTML(visible=False)
+    image_link = gr.HTML(visible=True, elem_classes="result-links")
     error_output = gr.Textbox(label="Error", visible=False)
 
     def select_example_garment(evt: gr.SelectData):
@@ -227,7 +244,9 @@ with gr.Blocks(css=css) as demo:
             image_path = result['image_path']
             if os.path.exists(image_path):
                 relative_path = os.path.relpath(image_path, start=os.getcwd())
-                link_html = f'<a href="{relative_path}" target="_blank">Click here to view the generated image</a>'
+                history_log_path = get_current_html_path()
+                link_html = f'<a href="{relative_path}" target="_blank">Click here to view the generated image</a><br>'
+                link_html += f'<a href="file={history_log_path}" target="_blank">View History Log</a>'
                 return gr.update(value=image_path, visible=True), gr.update(value=link_html, visible=True), gr.update(value="", visible=False)
             else:
                 return gr.update(value=None, visible=False), gr.update(visible=False), gr.update(value=f"Generated image not found at {image_path}", visible=True)
