@@ -11,7 +11,6 @@ import modules.constants as constants
 import modules.flags as flags
 from modules.util import HWC3, resize_image
 from modules.private_logger import log
-from modules.private_logger import get_current_html_path
 
 def custom_exception_handler(exc_type, exc_value, exc_traceback):
     print("An unhandled exception occurred:")
@@ -19,8 +18,6 @@ def custom_exception_handler(exc_type, exc_value, exc_traceback):
     sys.exit(1)
 
 sys.excepthook = custom_exception_handler
-
-image_link = gr.HTML(visible=True)
 
 def virtual_try_on(clothes_image, person_image, inpaint_mask):
     try:
@@ -135,22 +132,51 @@ example_garments = [
 ]
 
 css = """
-... (previous CSS)
-.result-links {
-    margin-top: 20px;
-    text-align: center;
+body {
+    background-color: #f0f0f0;
+    font-family: Arial, sans-serif;
 }
-.result-links a {
-    display: inline-block;
-    margin: 10px;
-    padding: 10px 20px;
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+.header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+.title {
+    font-size: 36px;
+    color: #333;
+    margin-bottom: 10px;
+}
+.subtitle {
+    font-size: 18px;
+    color: #666;
+}
+.example-garments {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 20px;
+}
+.example-garment {
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+.example-garment:hover {
+    transform: scale(1.05);
+}
+.try-on-button {
     background-color: #4CAF50;
     color: white;
-    text-decoration: none;
+    padding: 10px 20px;
+    font-size: 18px;
+    border: none;
     border-radius: 5px;
+    cursor: pointer;
     transition: background-color 0.3s ease;
 }
-.result-links a:hover {
+.try-on-button:hover {
     background-color: #45a049;
 }
 """
@@ -165,7 +191,6 @@ with gr.Blocks(css=css) as demo:
         """
     )
 
-with gr.Blocks(css=css) as demo:
     with gr.Row():
         with gr.Column(scale=1):
             gr.Markdown("### Choose a Garment")
@@ -178,7 +203,7 @@ with gr.Blocks(css=css) as demo:
 
     try_on_button = gr.Button("Try It On!", elem_classes="try-on-button")
     try_on_output = gr.Image(label="Virtual Try-On Result")
-    image_link = gr.HTML(visible=True, elem_classes="result-links")
+    image_link = gr.HTML(visible=False)
     error_output = gr.Textbox(label="Error", visible=False)
 
     def select_example_garment(evt: gr.SelectData):
@@ -186,30 +211,28 @@ with gr.Blocks(css=css) as demo:
 
     example_garment_gallery.select(select_example_garment, None, clothes_input)
 
-def process_virtual_try_on(clothes_image, person_image):
-    if clothes_image is None or person_image is None:
-        return gr.update(value=None, visible=False), gr.update(visible=False), gr.update(value="Please upload both a garment image and a person image.", visible=True)
-    
-    inpaint_image = person_image['image']
-    inpaint_mask = person_image['mask']
-    
-    if inpaint_mask is None or np.sum(inpaint_mask) == 0:
-        return gr.update(value=None, visible=False), gr.update(visible=False), gr.update(value="Please draw a mask on the person image to indicate where to apply the garment.", visible=True)
-    
-    result = virtual_try_on(clothes_image, inpaint_image, inpaint_mask)
-    
-    if result['success']:
-        image_path = result['image_path']
-        if os.path.exists(image_path):
-            relative_path = os.path.relpath(image_path, start=os.getcwd())
-            history_log_path = get_current_html_path()
-            link_html = f'<a href="{relative_path}" target="_blank">Click here to view the generated image</a><br>'
-            link_html += f'<a href="file={history_log_path}" target="_blank">View History Log</a>'
-            return gr.update(value=image_path, visible=True), gr.update(value=link_html, visible=True), gr.update(value="", visible=False)
+    def process_virtual_try_on(clothes_image, person_image):
+        if clothes_image is None or person_image is None:
+            return gr.update(value=None, visible=False), gr.update(visible=False), gr.update(value="Please upload both a garment image and a person image.", visible=True)
+        
+        inpaint_image = person_image['image']
+        inpaint_mask = person_image['mask']
+        
+        if inpaint_mask is None or np.sum(inpaint_mask) == 0:
+            return gr.update(value=None, visible=False), gr.update(visible=False), gr.update(value="Please draw a mask on the person image to indicate where to apply the garment.", visible=True)
+        
+        result = virtual_try_on(clothes_image, inpaint_image, inpaint_mask)
+        
+        if result['success']:
+            image_path = result['image_path']
+            if os.path.exists(image_path):
+                relative_path = os.path.relpath(image_path, start=os.getcwd())
+                link_html = f'<a href="{relative_path}" target="_blank">Click here to view the generated image</a>'
+                return gr.update(value=image_path, visible=True), gr.update(value=link_html, visible=True), gr.update(value="", visible=False)
+            else:
+                return gr.update(value=None, visible=False), gr.update(visible=False), gr.update(value=f"Generated image not found at {image_path}", visible=True)
         else:
-            return gr.update(value=None, visible=False), gr.update(visible=False), gr.update(value=f"Generated image not found at {image_path}", visible=True)
-    else:
-        return gr.update(value=None, visible=False), gr.update(visible=False), gr.update(value=result['error'], visible=True)
+            return gr.update(value=None, visible=False), gr.update(visible=False), gr.update(value=result['error'], visible=True)
 
     try_on_button.click(
         process_virtual_try_on,
