@@ -18,7 +18,7 @@ SAMPLE_GARMENTS = [
     "images/first.png",
     "images/second.png",
     "images/third.png",
-    "images/fourth.png",
+    "images/third.png",
 ]
 
 def virtual_try_on(clothes_image, person_image, inpaint_mask):
