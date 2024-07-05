@@ -132,6 +132,8 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
         print("Error in virtual_try_on:", str(e))
         traceback.print_exc()
         return f"Error: {str(e)}"
+
+        
 example_garments = [
     "images/first.png",
     "images/second.png",
@@ -191,44 +193,44 @@ with gr.Blocks(css=css) as demo:
     example_garment_gallery.select(select_example_garment, None, clothes_input)
 
 
-    def process_virtual_try_on(clothes_image, person_image):
-        if clothes_image is None or person_image is None:
-            return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value="Please upload both a garment image and a person image.", visible=True)
+def process_virtual_try_on(clothes_image, person_image):
+    if clothes_image is None or person_image is None:
+        return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value="Please upload both a garment image and a person image.", visible=True)
+    
+    inpaint_image = person_image['image']
+    inpaint_mask = person_image['mask']
+    
+    if inpaint_mask is None or np.sum(inpaint_mask) == 0:
+        return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value="Please draw a mask on the person image to indicate where to apply the garment.", visible=True)
+    
+    # Show loading indicator
+    yield gr.update(visible=True), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
+    
+    result = virtual_try_on(clothes_image, inpaint_image, inpaint_mask)
+    
+    if isinstance(result, str) and result.startswith("Error"):
+        yield gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value=result, visible=True)
+    else:
+        # Wait for the generated_image_path to be captured
+        timeout = 30  # seconds
+        start_time = time.time()
+        while not os.environ.get('GENERATED_IMAGE_PATH'):
+            if time.time() - start_time > timeout:
+                yield gr.update(visible=False), gr.update(visible=False), gr.update(value="Timeout waiting for image generation.", visible=True), gr.update(visible=False)
+                return
+            time.sleep(0.5)
         
-        inpaint_image = person_image['image']
-        inpaint_mask = person_image['mask']
+        generated_image_path = os.environ['GENERATED_IMAGE_PATH']
+        gradio_url = os.environ.get('GRADIO_PUBLIC_URL', '')
         
-        if inpaint_mask is None or np.sum(inpaint_mask) == 0:
-            return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value="Please draw a mask on the person image to indicate where to apply the garment.", visible=True)
-        
-        # Show loading indicator
-        yield gr.update(visible=True), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
-        
-        result = virtual_try_on(clothes_image, inpaint_image, inpaint_mask)
-        
-        if result['success']:
-            # Wait for the generated_image_path to be captured
-            timeout = 30  # seconds
-            start_time = time.time()
-            while not os.environ['GENERATED_IMAGE_PATH']:
-                if time.time() - start_time > timeout:
-                    yield gr.update(visible=False), gr.update(visible=False), gr.update(value="Timeout waiting for image generation.", visible=True), gr.update(visible=False)
-                    return
-                time.sleep(0.5)
+        if gradio_url and generated_image_path:
+            output_image_link = f"{gradio_url}/file={generated_image_path}"
+            link_html = f'<a href="{output_image_link}" target="_blank">Click here to view the generated image</a>'
             
-            generated_image_path = os.environ['GENERATED_IMAGE_PATH']
-            gradio_url = os.environ['GRADIO_PUBLIC_URL']
-            
-            if gradio_url and generated_image_path:
-                output_image_link = f"{gradio_url}/file={generated_image_path}"
-                link_html = f'<a href="{output_image_link}" target="_blank">Click here to view the generated image</a>'
-                
-                # Hide loading indicator and show the result
-                yield gr.update(visible=False), gr.update(value=generated_image_path, visible=True), gr.update(value=link_html, visible=True), gr.update(visible=False)
-            else:
-                yield gr.update(visible=False), gr.update(visible=False), gr.update(value=f"Unable to generate public link. Local file path: {generated_image_path}", visible=True), gr.update(visible=False)
+            # Hide loading indicator and show the result
+            yield gr.update(visible=False), gr.update(value=generated_image_path, visible=True), gr.update(value=link_html, visible=True), gr.update(visible=False)
         else:
-            yield gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value=result['error'], visible=True)
+            yield gr.update(visible=False), gr.update(visible=False), gr.update(value=f"Unable to generate public link. Local file path: {generated_image_path}", visible=True), gr.update(visible=False)
 
     try_on_button.click(
         process_virtual_try_on,
