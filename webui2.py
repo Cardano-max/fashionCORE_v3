@@ -155,7 +155,5 @@ def create_demo():
 
     return demo
 
-# Launch the Gradio interface
-if __name__ == "__main__":
-    demo = create_demo()
-    demo.launch()
+demo = create_demo()
+demo.launch(share=True)
