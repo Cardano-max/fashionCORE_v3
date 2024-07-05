@@ -17,12 +17,20 @@ from modules.private_logger import get_current_html_path
 from modules.sdxl_styles import legal_style_names
 from modules.ui_gradio_extensions import reload_javascript
 
-def virtual_try_on(clothes_image, person_image, inpaint_mask):
+# Sample garment images (replace these with actual paths to your merchandise images)
+SAMPLE_GARMENTS = [
+    "images/first.png",
+    "images/second.png",
+    "images/third.png",
+    "images/first.png",
+]
+
+def virtual_try_on(clothes_image, person_image):
     try:
         # Convert images to numpy arrays if they're not already
         clothes_image = np.array(clothes_image)
-        person_image = np.array(person_image)
-        inpaint_mask = np.array(inpaint_mask)
+        person_image = np.array(person_image['image'])
+        inpaint_mask = np.array(person_image['mask'])
 
         # Prepare LoRA arguments
         loras = []
@@ -123,37 +131,73 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
         traceback.print_exc()
         return f"Error: {str(e)}"
 
-# Create the Gradio interface
-def create_demo():
-    with gr.Blocks() as demo:
-        gr.Markdown("# Virtual Try-On System")
+def create_arbi_try_on_interface():
+    reload_javascript()
+    
+    with gr.Blocks(css=modules.html.css, theme="ehristoforu/Indigo_Theme") as arbi_try_on:
+        gr.HTML("""
+            <h1 style="text-align: center; margin-bottom: 1rem;">Welcome to ArbiTryOn</h1>
+            <p style="text-align: center; margin-bottom: 2rem;">
+                Experience Arbisoft's merchandise like never before! Our cutting-edge AI-powered virtual try-on system 
+                lets you visualize how our products look on you before you buy. Simply upload your photo, choose a 
+                garment, and see the magic happen. It's shopping reimagined for the digital age!
+            </p>
+        """)
         
-        with gr.Tab("Virtual Try-On"):
-            with gr.Row():
-                clothes_input = gr.Image(label="Clothes Image", source='upload', type='numpy')
-                person_input = gr.Image(label="Person Image", source='upload', type='numpy', tool='sketch', elem_id='inpaint_canvas')
-            try_on_button = gr.Button("Try On")
-            try_on_output = gr.Image(label="Try-On Result")
+        with gr.Row():
+            with gr.Column(scale=1):
+                gr.HTML("<h3>Step 1: Choose a Garment</h3>")
+                garment_gallery = gr.Gallery(value=SAMPLE_GARMENTS, columns=3, height=300, label="Sample Garments")
+                clothes_input = gr.Image(label="Selected Garment", type="numpy")
+                gr.HTML("<p>Click on a sample garment or upload your own</p>")
+            
+            with gr.Column(scale=1):
+                gr.HTML("<h3>Step 2: Upload Your Photo</h3>")
+                person_input = gr.Image(label="Your Photo", source="upload", type="numpy", tool="sketch", elem_id="inpaint_canvas")
+                gr.HTML("<p>Upload a photo and create a mask where the garment should be applied</p>")
+        
+        with gr.Row():
+            try_on_button = gr.Button("Step 3: Try It On!", variant="primary")
+        
+        with gr.Row():
+            try_on_output = gr.Image(label="Virtual Try-On Result")
             error_output = gr.Textbox(label="Error", visible=False)
+        
+        gr.HTML("""
+            <div style="text-align: center; margin-top: 2rem;">
+                <h3>How It Works</h3>
+                <p>
+                    ArbiTryOn uses state-of-the-art AI to seamlessly blend your chosen garment onto your photo. 
+                    Our advanced algorithms ensure realistic lighting, fit, and drape, giving you an accurate 
+                    preview of how our merchandise will look on you. It's not just a preview – it's a glimpse 
+                    into your stylish future with Arbisoft gear!
+                </p>
+            </div>
+        """)
+
+        def update_clothes_input(evt: gr.SelectData):
+            return SAMPLE_GARMENTS[evt.index]
 
         def process_virtual_try_on(clothes_image, person_image):
-            # Extract the image and mask from the person_input
-            inpaint_image = person_image['image']
-            inpaint_mask = person_image['mask']
-            
-            result = virtual_try_on(clothes_image, inpaint_image, inpaint_mask)
+            result = virtual_try_on(clothes_image, person_image)
             if isinstance(result, str):  # Error occurred
                 return gr.update(value=None, visible=False), gr.update(value=result, visible=True)
             else:  # Successfully generated image
                 return gr.update(value=result, visible=True), gr.update(value="", visible=False)
 
+        garment_gallery.select(update_clothes_input, None, clothes_input)
         try_on_button.click(
             process_virtual_try_on,
             inputs=[clothes_input, person_input],
             outputs=[try_on_output, error_output]
         )
 
-    return demo
+    return arbi_try_on
 
-demo = create_demo()
+# Initialize necessary components
+ldm_patched.modules.model_management.initialize()
+modules.config.update_all_model_names()
+
+# Launch the interface
+demo = create_arbi_try_on_interface()
 demo.launch(share=True)
