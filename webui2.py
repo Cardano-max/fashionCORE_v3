@@ -178,25 +178,27 @@ def create_arbi_try_on_interface():
         def update_clothes_input(evt: gr.SelectData):
             return SAMPLE_GARMENTS[evt.index]
 
-        def process_virtual_try_on(clothes_image, person_image):
-            # Extract the image and mask from the person_input
-            inpaint_image = person_image['image']
-            inpaint_mask = person_image['mask']
-            
-            result = virtual_try_on(clothes_image, inpaint_image, inpaint_mask)
-            if isinstance(result, str):  # Error occurred
-                return gr.update(value=None, visible=False), gr.update(value=result, visible=True)
-            else:  # Successfully generated image
-                return gr.update(value=result, visible=True), gr.update(value="", visible=False)
+            def process_virtual_try_on(clothes_image, person_image):
+                # Extract the image and mask from the person_input
+                inpaint_image = person_image['image']
+                inpaint_mask = person_image['mask']
+                
+                result = virtual_try_on(clothes_image, inpaint_image, inpaint_mask)
+                if isinstance(result, str):  # Error occurred
+                    return gr.update(value=None, visible=False), gr.update(value=result, visible=True)
+                else:  # Successfully generated image
+                    return gr.update(value=result, visible=True), gr.update(value="", visible=False)
 
-        garment_gallery.select(update_clothes_input, None, clothes_input)
-        try_on_button.click(
-            process_virtual_try_on,
-            inputs=[clothes_input, person_input],
-            outputs=[try_on_output, error_output]
-        )
+            try_on_button.click(
+                process_virtual_try_on,
+                inputs=[clothes_input, person_input],
+                outputs=[try_on_output, error_output]
+            )
 
     return arbi_try_on
+
+    # Update the Gradio interface
+
 
 
 
