@@ -282,6 +282,31 @@ with gr.Blocks(css=css) as demo:
         """
     )
 
-if __name__ == "__main__":
-    demo.queue()
-    demo.launch(share=True)
+
+demo.queue()
+
+# Custom function to capture and print the Gradio link
+def custom_launch():
+    global gradio_public_url
+    
+    # Launch the Gradio app
+    app, local_url, share_url = demo.launch(share=True, prevent_thread_lock=True)
+    
+    # Capture and print the public URL
+    if share_url:
+        gradio_public_url = share_url
+        print(f"Running on public URL: {gradio_public_url}")
+        
+        # Save the URL to a file
+        with open('gradio_url.json', 'w') as f:
+            json.dump({'url': gradio_public_url}, f)
+    
+    return app, local_url, share_url
+
+# Launch the app using our custom function
+custom_launch()
+
+# Keep the script running
+import time
+while True:
+    time.sleep(1)
