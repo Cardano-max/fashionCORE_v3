@@ -13,12 +13,24 @@ from modules.util import HWC3, resize_image
 from modules.private_logger import get_current_html_path
 import re
 
+import json
+import os
+
+
 def custom_exception_handler(exc_type, exc_value, exc_traceback):
     print("An unhandled exception occurred:")
     traceback.print_exception(exc_type, exc_value, exc_traceback)
     sys.exit(1)
 
 sys.excepthook = custom_exception_handler
+
+original_print = print
+def patched_print(*args, **kwargs):
+    line = ' '.join(map(str, args))
+    capture_gradio_url(line)
+    original_print(*args, **kwargs)
+
+print = patched_print
 
 gradio_public_url = None
 
@@ -28,6 +40,21 @@ def capture_gradio_url(line):
     if match:
         gradio_public_url = match.group(1)
         print(f"Captured Gradio public URL: {gradio_public_url}")
+        # Save the URL to a file
+        with open('gradio_url.json', 'w') as f:
+            json.dump({'url': gradio_public_url}, f)
+
+
+def get_gradio_url():
+    global gradio_public_url
+    if gradio_public_url is None:
+        try:
+            with open('gradio_url.json', 'r') as f:
+                data = json.load(f)
+                gradio_public_url = data.get('url')
+        except FileNotFoundError:
+            pass
+    return gradio_public_url
 
 # Monkey-patch the print function to capture the Gradio URL
 original_print = print
@@ -204,6 +231,7 @@ with gr.Blocks(css=css) as demo:
 
     def process_virtual_try_on(clothes_image, person_image):
         global gradio_public_url
+        
         if clothes_image is None or person_image is None:
             return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value="Please upload both a garment image and a person image.", visible=True)
         
@@ -224,11 +252,13 @@ with gr.Blocks(css=css) as demo:
                 relative_path = os.path.relpath(image_path, start=os.getcwd())
                 history_log_path = get_current_html_path()
                 
-                # Construct the final output image link
-                if gradio_public_url:
-                    output_image_link = f"{gradio_public_url}/file={relative_path}"
+                # Get the Gradio public URL
+                gradio_url = get_gradio_url()
+                
+                if gradio_url:
+                    output_image_link = f"{gradio_url}/file={relative_path}"
                     link_html = f'<a href="{output_image_link}" target="_blank">Click here to view the generated image</a><br>'
-                    link_html += f'<a href="file={history_log_path}" target="_blank">View History Log</a>'
+                    link_html += f'<a href="{gradio_url}/file={history_log_path}" target="_blank">View History Log</a>'
                     
                     # Hide loading indicator and show the result
                     yield gr.update(visible=False), gr.update(value=image_path, visible=True), gr.update(value=link_html, visible=True), gr.update(visible=False)
