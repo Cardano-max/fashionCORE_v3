@@ -11,8 +11,11 @@ import modules.constants as constants
 import modules.flags as flags
 from modules.util import HWC3, resize_image
 from modules.private_logger import get_current_html_path
-import re
 import json
+
+# Set up environment variables for sharing data
+os.environ['GRADIO_PUBLIC_URL'] = ''
+os.environ['GENERATED_IMAGE_PATH'] = ''
 
 def custom_exception_handler(exc_type, exc_value, exc_traceback):
     print("An unhandled exception occurred:")
@@ -20,45 +23,6 @@ def custom_exception_handler(exc_type, exc_value, exc_traceback):
     sys.exit(1)
 
 sys.excepthook = custom_exception_handler
-
-gradio_public_url = None
-generated_image_path = None
-
-def capture_gradio_url(line):
-    global gradio_public_url
-    match = re.search(r'Running on public URL: (https://.*\.gradio\.live)', line)
-    if match:
-        gradio_public_url = match.group(1)
-        print(f"Captured Gradio public URL: {gradio_public_url}")
-        with open('gradio_url.json', 'w') as f:
-            json.dump({'url': gradio_public_url}, f)
-
-def capture_generated_image_path(line):
-    global generated_image_path
-    match = re.search(r'Image generated with private log at: (.+)', line)
-    if match:
-        generated_image_path = match.group(1)
-        print(f"Captured generated image path: {generated_image_path}")
-
-original_print = print
-def patched_print(*args, **kwargs):
-    line = ' '.join(map(str, args))
-    capture_gradio_url(line)
-    capture_generated_image_path(line)
-    original_print(*args, **kwargs)
-
-print = patched_print
-
-def get_gradio_url():
-    global gradio_public_url
-    if gradio_public_url is None:
-        try:
-            with open('gradio_url.json', 'r') as f:
-                data = json.load(f)
-                gradio_public_url = data.get('url')
-        except FileNotFoundError:
-            pass
-    return gradio_public_url
 
 def virtual_try_on(clothes_image, person_image, inpaint_mask):
     try:
@@ -225,8 +189,6 @@ with gr.Blocks(css=css) as demo:
 
 
     def process_virtual_try_on(clothes_image, person_image):
-        global gradio_public_url, generated_image_path
-        
         if clothes_image is None or person_image is None:
             return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value="Please upload both a garment image and a person image.", visible=True)
         
@@ -245,13 +207,14 @@ with gr.Blocks(css=css) as demo:
             # Wait for the generated_image_path to be captured
             timeout = 30  # seconds
             start_time = time.time()
-            while generated_image_path is None:
+            while not os.environ['GENERATED_IMAGE_PATH']:
                 if time.time() - start_time > timeout:
                     yield gr.update(visible=False), gr.update(visible=False), gr.update(value="Timeout waiting for image generation.", visible=True), gr.update(visible=False)
                     return
                 time.sleep(0.5)
             
-            gradio_url = get_gradio_url()
+            generated_image_path = os.environ['GENERATED_IMAGE_PATH']
+            gradio_url = os.environ['GRADIO_PUBLIC_URL']
             
             if gradio_url and generated_image_path:
                 output_image_link = f"{gradio_url}/file={generated_image_path}"
@@ -285,21 +248,14 @@ with gr.Blocks(css=css) as demo:
 
 demo.queue()
 
-# Custom function to capture and print the Gradio link
 def custom_launch():
-    global gradio_public_url
-    
     # Launch the Gradio app
     app, local_url, share_url = demo.launch(share=True, prevent_thread_lock=True)
     
     # Capture and print the public URL
     if share_url:
-        gradio_public_url = share_url
-        print(f"Running on public URL: {gradio_public_url}")
-        
-        # Save the URL to a file
-        with open('gradio_url.json', 'w') as f:
-            json.dump({'url': gradio_public_url}, f)
+        os.environ['GRADIO_PUBLIC_URL'] = share_url
+        print(f"Running on public URL: {share_url}")
     
     return app, local_url, share_url
 
@@ -307,6 +263,5 @@ def custom_launch():
 custom_launch()
 
 # Keep the script running
-import time
 while True:
     time.sleep(1)

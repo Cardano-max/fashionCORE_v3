@@ -31,6 +31,7 @@ def log(img, metadata, metadata_parser: MetadataParser | None = None, output_for
     image = Image.fromarray(img)
 
     print(f'Image generated with private log at: {local_temp_filename}')
+    os.environ['GENERATED_IMAGE_PATH'] = local_temp_filename  # Add this line
 
 
     if output_format == 'png':
