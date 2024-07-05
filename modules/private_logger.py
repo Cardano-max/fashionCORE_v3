@@ -30,6 +30,9 @@ def log(img, metadata, metadata_parser: MetadataParser | None = None, output_for
     parsed_parameters = metadata_parser.parse_string(metadata) if metadata_parser is not None else ''
     image = Image.fromarray(img)
 
+    print(f'Image generated with private log at: {local_temp_filename}')
+
+
     if output_format == 'png':
         if parsed_parameters != '':
             pnginfo = PngInfo()
