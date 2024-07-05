@@ -10,29 +10,13 @@ import modules.async_worker as worker
 import modules.constants as constants
 import modules.flags as flags
 from modules.util import HWC3, resize_image
-from modules.private_logger import get_current_html_path
+from modules.private_logger import get_current_html_path, log
 import re
-
 import json
-import os
 
-
-def custom_exception_handler(exc_type, exc_value, exc_traceback):
-    print("An unhandled exception occurred:")
-    traceback.print_exception(exc_type, exc_value, exc_traceback)
-    sys.exit(1)
-
-sys.excepthook = custom_exception_handler
-
-original_print = print
-def patched_print(*args, **kwargs):
-    line = ' '.join(map(str, args))
-    capture_gradio_url(line)
-    original_print(*args, **kwargs)
-
-print = patched_print
-
+# Global variables to store Gradio URL and generated image path
 gradio_public_url = None
+generated_image_path = None
 
 def capture_gradio_url(line):
     global gradio_public_url
@@ -40,10 +24,25 @@ def capture_gradio_url(line):
     if match:
         gradio_public_url = match.group(1)
         print(f"Captured Gradio public URL: {gradio_public_url}")
-        # Save the URL to a file
         with open('gradio_url.json', 'w') as f:
             json.dump({'url': gradio_public_url}, f)
 
+def capture_generated_image_path(line):
+    global generated_image_path
+    match = re.search(r'Image generated with private log at: (.+)', line)
+    if match:
+        generated_image_path = match.group(1)
+        print(f"Captured generated image path: {generated_image_path}")
+
+# Monkey-patch the print function to capture both Gradio URL and generated image path
+original_print = print
+def patched_print(*args, **kwargs):
+    line = ' '.join(map(str, args))
+    capture_gradio_url(line)
+    capture_generated_image_path(line)
+    original_print(*args, **kwargs)
+
+print = patched_print
 
 def get_gradio_url():
     global gradio_public_url
@@ -55,15 +54,6 @@ def get_gradio_url():
         except FileNotFoundError:
             pass
     return gradio_public_url
-
-# Monkey-patch the print function to capture the Gradio URL
-original_print = print
-def patched_print(*args, **kwargs):
-    line = ' '.join(map(str, args))
-    capture_gradio_url(line)
-    original_print(*args, **kwargs)
-
-print = patched_print
 
 def virtual_try_on(clothes_image, person_image, inpaint_mask):
     try:
@@ -230,7 +220,7 @@ with gr.Blocks(css=css) as demo:
 
 
     def process_virtual_try_on(clothes_image, person_image):
-        global gradio_public_url
+        global gradio_public_url, generated_image_path
         
         if clothes_image is None or person_image is None:
             return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value="Please upload both a garment image and a person image.", visible=True)
@@ -247,25 +237,27 @@ with gr.Blocks(css=css) as demo:
         result = virtual_try_on(clothes_image, inpaint_image, inpaint_mask)
         
         if result['success']:
-            image_path = result['image_path']
-            if os.path.exists(image_path):
-                relative_path = os.path.relpath(image_path, start=os.getcwd())
-                history_log_path = get_current_html_path()
+            # Wait for the generated_image_path to be captured
+            timeout = 30  # seconds
+            start_time = time.time()
+            while generated_image_path is None:
+                if time.time() - start_time > timeout:
+                    yield gr.update(visible=False), gr.update(visible=False), gr.update(value="Timeout waiting for image generation.", visible=True), gr.update(visible=False)
+                    return
+                time.sleep(0.5)
+            
+            gradio_url = get_gradio_url()
+            
+            if gradio_url and generated_image_path:
+                relative_path = os.path.relpath(generated_image_path, start=os.getcwd())
+                output_image_link = f"{gradio_url}/file={relative_path}"
+                link_html = f'<a href="{output_image_link}" target="_blank">Click here to view the generated image</a><br>'
+                link_html += f'<a href="{gradio_url}/file={generated_image_path}" target="_blank">View History Log</a>'
                 
-                # Get the Gradio public URL
-                gradio_url = get_gradio_url()
-                
-                if gradio_url:
-                    output_image_link = f"{gradio_url}/file={relative_path}"
-                    link_html = f'<a href="{output_image_link}" target="_blank">Click here to view the generated image</a><br>'
-                    link_html += f'<a href="{gradio_url}/file={history_log_path}" target="_blank">View History Log</a>'
-                    
-                    # Hide loading indicator and show the result
-                    yield gr.update(visible=False), gr.update(value=image_path, visible=True), gr.update(value=link_html, visible=True), gr.update(visible=False)
-                else:
-                    yield gr.update(visible=False), gr.update(visible=False), gr.update(value=f"Unable to generate public link. Local file path: {image_path}", visible=True), gr.update(visible=False)
+                # Hide loading indicator and show the result
+                yield gr.update(visible=False), gr.update(value=generated_image_path, visible=True), gr.update(value=link_html, visible=True), gr.update(visible=False)
             else:
-                yield gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value=f"Generated image not found at {image_path}", visible=True)
+                yield gr.update(visible=False), gr.update(visible=False), gr.update(value=f"Unable to generate public link. Local file path: {generated_image_path}", visible=True), gr.update(visible=False)
         else:
             yield gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value=result['error'], visible=True)
 
@@ -274,7 +266,6 @@ with gr.Blocks(css=css) as demo:
         inputs=[clothes_input, person_input],
         outputs=[loading_indicator, try_on_output, image_link, error_output]
     )
-
 
     gr.Markdown(
         """
