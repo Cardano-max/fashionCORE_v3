@@ -30,7 +30,7 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
         person_image = HWC3(person_image)
         inpaint_mask = HWC3(inpaint_mask)[:, :, 0]
 
-        target_size = (512, 512)
+        target_size = (1024, 1024)
         clothes_image = resize_image(clothes_image, target_size[0], target_size[1])
         person_image = resize_image(person_image, target_size[0], target_size[1])
         inpaint_mask = resize_image(inpaint_mask, target_size[0], target_size[1])
@@ -167,12 +167,12 @@ with gr.Blocks(css=css) as demo:
     )
 
     with gr.Row():
-        with gr.Column(scale=1):
+        with gr.Column(scale=3):
             gr.Markdown("### Choose a Garment")
             example_garment_gallery = gr.Gallery(value=example_garments, columns=2, rows=2, label="Example Garments", elem_class="example-garments")
             clothes_input = gr.Image(label="Selected Garment", source="upload", type="numpy")
 
-        with gr.Column(scale=1):
+        with gr.Column(scale=3):
             gr.Markdown("### Upload Your Photo")
             person_input = gr.Image(label="Your Photo", source="upload", type="numpy", tool="sketch", elem_id="inpaint_canvas")
 
