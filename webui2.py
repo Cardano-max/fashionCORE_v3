@@ -201,7 +201,9 @@ with gr.Blocks(css=css) as demo:
 
     example_garment_gallery.select(select_example_garment, None, clothes_input)
 
+
     def process_virtual_try_on(clothes_image, person_image):
+        global gradio_public_url
         if clothes_image is None or person_image is None:
             return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value="Please upload both a garment image and a person image.", visible=True)
         
@@ -231,7 +233,7 @@ with gr.Blocks(css=css) as demo:
                     # Hide loading indicator and show the result
                     yield gr.update(visible=False), gr.update(value=image_path, visible=True), gr.update(value=link_html, visible=True), gr.update(visible=False)
                 else:
-                    yield gr.update(visible=False), gr.update(visible=False), gr.update(value="Unable to generate public link. Please check the console for the local file path.", visible=True), gr.update(visible=False)
+                    yield gr.update(visible=False), gr.update(visible=False), gr.update(value=f"Unable to generate public link. Local file path: {image_path}", visible=True), gr.update(visible=False)
             else:
                 yield gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value=f"Generated image not found at {image_path}", visible=True)
         else:
@@ -242,6 +244,7 @@ with gr.Blocks(css=css) as demo:
         inputs=[clothes_input, person_input],
         outputs=[loading_indicator, try_on_output, image_link, error_output]
     )
+
 
     gr.Markdown(
         """
