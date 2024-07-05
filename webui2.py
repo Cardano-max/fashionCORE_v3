@@ -17,14 +17,6 @@ from modules.private_logger import get_current_html_path
 from modules.sdxl_styles import legal_style_names
 from modules.ui_gradio_extensions import reload_javascript
 
-# Sample garment images (replace these with actual paths to your merchandise images)
-SAMPLE_GARMENTS = [
-    "images/first.png",
-    "images/second.png",
-    "images/third.png",
-    "images/first.png",
-]
-
 def virtual_try_on(clothes_image, person_image, inpaint_mask):
     try:
         # Convert images to numpy arrays if they're not already
@@ -131,39 +123,32 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
         traceback.print_exc()
         return f"Error: {str(e)}"
 
-def create_arbi_try_on_interface():
-    reload_javascript()
-    
-    with gr.Blocks(css=modules.html.css, theme="ehristoforu/Indigo_Theme") as arbi_try_on:
-        with gr.Tab("Virtual Try-On"):
-            with gr.Row():
-                clothes_input = gr.Image(label="Clothes Image", source='upload', type='numpy')
-                person_input = gr.Image(label="Person Image", source='upload', type='numpy', tool='sketch', elem_id='inpaint_canvas')
-            try_on_button = gr.Button("Try On")
-            try_on_output = gr.Image(label="Try-On Result")
-            error_output = gr.Textbox(label="Error", visible=False)
+# Update the Gradio interface
+with gr.Interface(css=modules.html.css) as demo:
+    with gr.Tab("Virtual Try-On"):
+        with gr.Row():
+            clothes_input = gr.Image(label="Clothes Image", source='upload', type='numpy')
+            person_input = gr.Image(label="Person Image", source='upload', type='numpy', tool='sketch', elem_id='inpaint_canvas')
+        try_on_button = gr.Button("Try On")
+        try_on_output = gr.Image(label="Try-On Result")
+        error_output = gr.Textbox(label="Error", visible=False)
 
-            def process_virtual_try_on(clothes_image, person_image):
-                # Extract the image and mask from the person_input
-                inpaint_image = person_image['image']
-                inpaint_mask = person_image['mask']
-                
-                result = virtual_try_on(clothes_image, inpaint_image, inpaint_mask)
-                if isinstance(result, str):  # Error occurred
-                    return gr.update(value=None, visible=False), gr.update(value=result, visible=True)
-                else:  # Successfully generated image
-                    return gr.update(value=result, visible=True), gr.update(value="", visible=False)
+        def process_virtual_try_on(clothes_image, person_image):
+            # Extract the image and mask from the person_input
+            inpaint_image = person_image['image']
+            inpaint_mask = person_image['mask']
 
-            try_on_button.click(
-                process_virtual_try_on,
-                inputs=[clothes_input, person_input],
-                outputs=[try_on_output, error_output]
-            )
+            result = virtual_try_on(clothes_image, inpaint_image, inpaint_mask)
+            if isinstance(result, str):  # Error occurred
+                return gr.update(value=None, visible=False), gr.update(value=result, visible=True)
+            else:  # Successfully generated image
+                return gr.update(value=result, visible=True), gr.update(value="", visible=False)
 
-    return arbi_try_on
+        try_on_button.click(
+            process_virtual_try_on,
+            inputs=[clothes_input, person_input],
+            outputs=[try_on_output, error_output]
+        )
 
-
-
-# Launch the interface
-demo = create_arbi_try_on_interface()
+# Launch the Gradio interface
 demo.launch(share=True)
