@@ -13,6 +13,17 @@ from modules.util import HWC3, resize_image
 from modules.private_logger import get_current_html_path
 import json
 
+# Set up environment variables for sharing data
+os.environ['GRADIO_PUBLIC_URL'] = ''
+os.environ['GENERATED_IMAGE_PATH'] = ''
+
+def custom_exception_handler(exc_type, exc_value, exc_traceback):
+    print("An unhandled exception occurred:")
+    traceback.print_exception(exc_type, exc_value, exc_traceback)
+    sys.exit(1)
+
+sys.excepthook = custom_exception_handler
+
 def virtual_try_on(clothes_image, person_image, inpaint_mask):
     try:
         clothes_image = HWC3(clothes_image)
@@ -29,76 +40,75 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
             loras.extend(lora)
 
         args = [
-            True,  # generate_image_grid
-            "Wearing a new garment",  # prompt
-            modules.config.default_prompt_negative,  # negative_prompt
-            False,  # translate_prompts
-            ["Fooocus V2", "Fooocus Enhance", "Fooocus Sharp"],  # style_selections
-            "Quality",  # performance_selection (changed to "Quality" for 45 steps)
-            modules.config.default_aspect_ratio,  # aspect_ratios_selection
-            1,  # image_number
-            modules.config.default_output_format,  # output_format
-            random.randint(constants.MIN_SEED, constants.MAX_SEED),  # image_seed
-            modules.config.default_sample_sharpness,  # sharpness
-            modules.config.default_cfg_scale,  # guidance_scale
-            modules.config.default_base_model_name,  # base_model_name
-            modules.config.default_refiner_model_name,  # refiner_model_name
-            modules.config.default_refiner_switch,  # refiner_switch
+            True,
+            "",
+            modules.config.default_prompt_negative,
+            False,
+            modules.config.default_styles,
+            modules.config.default_performance,
+            modules.config.default_aspect_ratio,
+            1,
+            modules.config.default_output_format,
+            random.randint(constants.MIN_SEED, constants.MAX_SEED),
+            modules.config.default_sample_sharpness,
+            modules.config.default_cfg_scale,
+            modules.config.default_base_model_name,
+            modules.config.default_refiner_model_name,
+            modules.config.default_refiner_switch,
         ] + loras + [
-            True,  # input_image_checkbox
-            "inpaint",  # current_tab
-            flags.disabled,  # uov_method
-            None,  # uov_input_image
-            [],  # outpaint_selections
-            {'image': person_image, 'mask': inpaint_mask},  # inpaint_input_image
-            "",  # inpaint_additional_prompt
-            inpaint_mask,  # inpaint_mask_image_upload
-            False,  # disable_preview
-            False,  # disable_intermediate_results
-            modules.config.default_black_out_nsfw,  # black_out_nsfw
-            1.5,  # adm_scaler_positive
-            0.8,  # adm_scaler_negative
-            0.3,  # adm_scaler_end
-            modules.config.default_cfg_tsnr,  # adaptive_cfg
-            modules.config.default_sampler,  # sampler_name
-            modules.config.default_scheduler,  # scheduler_name
-            modules.config.default_performance,  # performance_selection
-            -1,  # overwrite_switch
-            -1,  # overwrite_width
-            -1,  # overwrite_height
-            -1,  # overwrite_vary_strength
-            modules.config.default_overwrite_upscale,  # overwrite_upscale_strength
-            False,  # mixing_image_prompt_and_vary_upscale
-            True,  # mixing_image_prompt_and_inpaint
-            False,  # debugging_cn_preprocessor
-            False,  # skipping_cn_preprocessor
-            100,  # canny_low_threshold
-            200,  # canny_high_threshold
-            flags.refiner_swap_method,  # refiner_swap_method
-            0.5,  # controlnet_softness
-            False,  # freeu_enabled
-            1.0,  # freeu_b1
-            1.0,  # freeu_b2
-            1.0,  # freeu_s1
-            1.0,  # freeu_s2
-            False,  # debugging_inpaint_preprocessor
-            False,  # inpaint_disable_initial_latent
-            modules.config.default_inpaint_engine_version,  # inpaint_engine
-            1.0,  # inpaint_strength
-            0.618,  # inpaint_respective_field
-            True,  # inpaint_mask_upload_checkbox
-            False,  # invert_mask_checkbox
-            0,  # inpaint_erode_or_dilate
-            modules.config.default_save_metadata_to_images,  # save_metadata_to_images
-            modules.config.default_metadata_scheme,  # metadata_scheme
+            True,
+            "inpaint",
+            flags.disabled,
+            None,
+            [],
+            {'image': person_image, 'mask': inpaint_mask},
+            "Wearing a new garment",
+            inpaint_mask,
+            True,
+            True,
+            modules.config.default_black_out_nsfw,
+            1.5,
+            0.8,
+            0.3,
+            modules.config.default_cfg_tsnr,
+            modules.config.default_sampler,
+            modules.config.default_scheduler,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            modules.config.default_overwrite_upscale,
+            False,
+            True,
+            False,
+            False,
+            100,
+            200,
+            flags.refiner_swap_method,
+            0.5,
+            False,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            False,
+            False,
+            modules.config.default_inpaint_engine_version,
+            1.0,
+            0.618,
+            False,
+            False,
+            0,
+            modules.config.default_save_metadata_to_images,
+            modules.config.default_metadata_scheme,
         ]
 
-        # Add Image Prompt for clothes image with specific stop and weight values
         args.extend([
-            clothes_image,  # ip_image
-            0.86,  # ip_stop (as per your workflow)
-            0.97,  # ip_weight (as per your workflow)
-            flags.default_ip,  # ip_type
+            clothes_image,
+            0.86,
+            0.97,
+            flags.default_ip,
         ])
 
         task = worker.AsyncTask(args=args)
@@ -109,7 +119,7 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
         while task.processing:
             time.sleep(0.1)
 
-        if isinstance(task.results, list) and len(task.results) > 0:
+        if task.results and isinstance(task.results, list) and len(task.results) > 0:
             return {"success": True, "image_path": task.results[0]}
         else:
             return {"success": False, "error": "No results generated"}
@@ -118,8 +128,6 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
         print("Error in virtual_try_on:", str(e))
         traceback.print_exc()
         return {"success": False, "error": str(e)}
-
-# ... (rest of the code remains the same)
 
 example_garments = [
     "images/1.png",
