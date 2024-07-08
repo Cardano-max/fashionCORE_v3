@@ -64,7 +64,7 @@ ip_list = [cn_ip, cn_canny, cn_cpds, cn_ip_face]
 default_ip = cn_ip
 
 default_parameters = {
-    cn_ip: (0.5, 0.6), cn_ip_face: (0.9, 0.75), cn_canny: (0.5, 1.0), cn_cpds: (0.5, 1.0)
+    cn_ip: (0.85, 0.97), cn_ip_face: (0.9, 0.75), cn_canny: (0.5, 1.0), cn_cpds: (0.5, 1.0)
 }  # stop, weight
 
 inpaint_engine_versions = ['None', 'v1', 'v2.5', 'v2.6']
