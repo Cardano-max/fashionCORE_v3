@@ -62,7 +62,7 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
             modules.config.default_cfg_tsnr,  # adaptive_cfg
             modules.config.default_sampler,  # sampler_name
             modules.config.default_scheduler,  # scheduler_name
-            45,  # overwrite_step (changed to 45 for "Quality" mode)
+            modules.config.default_performance,  # performance_selection
             -1,  # overwrite_switch
             -1,  # overwrite_width
             -1,  # overwrite_height
