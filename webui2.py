@@ -130,10 +130,17 @@ def virtual_try_on(clothes_image, person_image, inpaint_mask):
         return {"success": False, "error": str(e)}
 
 example_garments = [
-    "images/first.png",
-    "images/second.png",
-    "images/third.png",
-    "images/first.png",
+    "images/1.png",
+    "images/2.png",
+    "images/3.png",
+    "images/4.png",
+    "images/5.png",
+    "images/6.png",
+    "images/7.png",
+    "images/8.png",
+    "images/9.png",
+    "images/10.png",
+    "images/11.png",
 ]
 
 css = """
