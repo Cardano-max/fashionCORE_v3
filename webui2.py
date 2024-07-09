@@ -15,7 +15,7 @@ from modules.masking import mask_clothes
 import json
 import torch
 from PIL import Image
-import matplotlib
+import matplotlib.pyplot as plt
 
 os.environ['GRADIO_PUBLIC_URL'] = ''
 os.environ['GENERATED_IMAGE_PATH'] = ''
