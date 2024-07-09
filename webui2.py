@@ -11,7 +11,10 @@ import modules.constants as constants
 import modules.flags as flags
 from modules.util import HWC3, resize_image
 from modules.private_logger import get_current_html_path
+from modules.masking import mask_clothes
 import json
+import torch
+from PIL import Image
 
 # Set up environment variables for sharing data
 os.environ['GRADIO_PUBLIC_URL'] = ''
@@ -24,16 +27,19 @@ def custom_exception_handler(exc_type, exc_value, exc_traceback):
 
 sys.excepthook = custom_exception_handler
 
-def virtual_try_on(clothes_image, person_image, inpaint_mask):
+def virtual_try_on(clothes_image, person_image):
     try:
         clothes_image = HWC3(clothes_image)
         person_image = HWC3(person_image)
-        inpaint_mask = HWC3(inpaint_mask)[:, :, 0]
 
         target_size = (1152, 896)
         clothes_image = resize_image(clothes_image, target_size[0], target_size[1])
         person_image = resize_image(person_image, target_size[0], target_size[1])
-        inpaint_mask = resize_image(inpaint_mask, target_size[0], target_size[1])
+
+        # Generate mask using the mask_clothes function
+        person_image_pil = Image.fromarray(person_image)
+        inpaint_mask = mask_clothes(person_image_pil)
+        inpaint_mask = np.array(inpaint_mask)
 
         loras = []
         for lora in modules.config.default_loras:
@@ -181,7 +187,7 @@ with gr.Blocks(css=css) as demo:
 
         with gr.Column(scale=3):
             gr.Markdown("### Upload Your Photo")
-            person_input = gr.Image(label="Your Photo", source="upload", type="numpy", tool="sketch", elem_id="inpaint_canvas")
+            person_input = gr.Image(label="Your Photo", source="upload", type="numpy")
 
     try_on_button = gr.Button("Try It On!", elem_classes="try-on-button")
     loading_indicator = gr.HTML('<div class="loading"></div>', visible=False)
@@ -194,21 +200,14 @@ with gr.Blocks(css=css) as demo:
 
     example_garment_gallery.select(select_example_garment, None, clothes_input)
 
-
     def process_virtual_try_on(clothes_image, person_image):
         if clothes_image is None or person_image is None:
             return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value="Please upload both a garment image and a person image.", visible=True)
         
-        inpaint_image = person_image['image']
-        inpaint_mask = person_image['mask']
-        
-        if inpaint_mask is None or np.sum(inpaint_mask) == 0:
-            return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value="Please draw a mask on the person image to indicate where to apply the garment.", visible=True)
-        
         # Show loading indicator
         yield gr.update(visible=True), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
         
-        result = virtual_try_on(clothes_image, inpaint_image, inpaint_mask)
+        result = virtual_try_on(clothes_image, person_image)
         
         if result['success']:
             # Wait for the generated_image_path to be captured
@@ -240,18 +239,16 @@ with gr.Blocks(css=css) as demo:
         outputs=[loading_indicator, try_on_output, image_link, error_output]
     )
 
-
     gr.Markdown(
         """
         ## How It Works
         1. Choose a garment from our examples or upload your own.
-        2. Upload a photo of yourself and use the brush tool to indicate where you want the garment placed.
+        2. Upload a photo of yourself.
         3. Click "Try It On!" to see the magic happen!
 
         Experience the future of online shopping with ArbiTryOn - where technology meets style!
         """
     )
-
 
 demo.queue()
 
