@@ -16,7 +16,9 @@ import json
 import torch
 from PIL import Image
 import matplotlib.pyplot as plt
+import io
 
+# Set up environment variables for sharing data
 os.environ['GRADIO_PUBLIC_URL'] = ''
 os.environ['GENERATED_IMAGE_PATH'] = ''
 os.environ['MASKED_IMAGE_PATH'] = ''
@@ -28,17 +30,40 @@ def custom_exception_handler(exc_type, exc_value, exc_traceback):
 
 sys.excepthook = custom_exception_handler
 
+import matplotlib.pyplot as plt
+import io
+
 def virtual_try_on(clothes_image, person_image):
     try:
         clothes_image = HWC3(clothes_image)
         person_image = HWC3(person_image)
+
         target_size = (1152, 896)
         clothes_image = resize_image(clothes_image, target_size[0], target_size[1])
         person_image = resize_image(person_image, target_size[0], target_size[1])
-        # Using modules/masking.py
+
+        # Generate mask using the mask_clothes function
         person_image_pil = Image.fromarray(person_image)
         inpaint_mask = mask_clothes(person_image_pil)
-        plt.imshow(inpaint_mask)
+
+        # Display and save the mask
+        plt.figure(figsize=(10, 10))
+        plt.imshow(inpaint_mask, cmap='gray')
+        plt.axis('off')
+        
+        # Save the plot to a byte buffer
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
+        buf.seek(0)
+        
+        # Save the mask image
+        masked_image_path = os.path.join(modules.config.path_outputs, f"masked_image_{int(time.time())}.png")
+        with open(masked_image_path, 'wb') as f:
+            f.write(buf.getvalue())
+        
+        plt.close()  # Close the plot to free up memory
+
+        os.environ['MASKED_IMAGE_PATH'] = masked_image_path
 
         loras = []
         for lora in modules.config.default_loras:
