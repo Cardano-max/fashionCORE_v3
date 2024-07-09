@@ -13,7 +13,6 @@ from modules.util import HWC3, resize_image
 from modules.private_logger import get_current_html_path
 from modules.masking import mask_clothes
 import json
-import torch
 from PIL import Image
 
 # Set up environment variables for sharing data
@@ -27,19 +26,16 @@ def custom_exception_handler(exc_type, exc_value, exc_traceback):
 
 sys.excepthook = custom_exception_handler
 
-def virtual_try_on(clothes_image, person_image):
+def virtual_try_on(clothes_image, person_image, inpaint_mask):
     try:
         clothes_image = HWC3(clothes_image)
         person_image = HWC3(person_image)
+        inpaint_mask = HWC3(inpaint_mask)[:, :, 0]
 
         target_size = (1152, 896)
         clothes_image = resize_image(clothes_image, target_size[0], target_size[1])
         person_image = resize_image(person_image, target_size[0], target_size[1])
-
-        # Generate mask using the mask_clothes function
-        person_image_pil = Image.fromarray(person_image)
-        inpaint_mask = mask_clothes(person_image_pil)
-        inpaint_mask = np.array(inpaint_mask)
+        inpaint_mask = resize_image(inpaint_mask, target_size[0], target_size[1])
 
         loras = []
         for lora in modules.config.default_loras:
@@ -187,10 +183,11 @@ with gr.Blocks(css=css) as demo:
 
         with gr.Column(scale=3):
             gr.Markdown("### Upload Your Photo")
-            person_input = gr.Image(label="Your Photo", source="upload", type="numpy")
+            person_input = gr.Image(label="Your Photo", source="upload", type="numpy", tool="sketch", elem_id="inpaint_canvas")
 
     try_on_button = gr.Button("Try It On!", elem_classes="try-on-button")
     loading_indicator = gr.HTML('<div class="loading"></div>', visible=False)
+    masked_output = gr.Image(label="Masked Image", visible=False)
     try_on_output = gr.Image(label="Virtual Try-On Result", visible=False)
     image_link = gr.HTML(visible=True, elem_classes="result-links")
     error_output = gr.Textbox(label="Error", visible=False)
@@ -202,12 +199,31 @@ with gr.Blocks(css=css) as demo:
 
     def process_virtual_try_on(clothes_image, person_image):
         if clothes_image is None or person_image is None:
-            return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value="Please upload both a garment image and a person image.", visible=True)
+            return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value="Please upload both a garment image and a person image.", visible=True)
+        
+        inpaint_image = person_image['image']
+        inpaint_mask = person_image['mask']
+        
+        if inpaint_mask is None or np.sum(inpaint_mask) == 0:
+            return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value="Please draw a mask on the person image to indicate where to apply the garment.", visible=True)
+        
+        # Generate mask using the mask_clothes function
+        person_image_pil = Image.fromarray(inpaint_image)
+        auto_mask = mask_clothes(person_image_pil)
+        auto_mask = np.array(auto_mask)
+        
+        # Combine the drawn mask and the auto-generated mask
+        combined_mask = np.maximum(inpaint_mask, auto_mask)
         
         # Show loading indicator
-        yield gr.update(visible=True), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
+        yield gr.update(visible=True), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
         
-        result = virtual_try_on(clothes_image, person_image)
+        # Display the masked image
+        masked_image = inpaint_image.copy()
+        masked_image[combined_mask > 0] = [255, 0, 0]  # Red overlay for masked area
+        yield gr.update(visible=True), gr.update(value=masked_image, visible=True), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
+        
+        result = virtual_try_on(clothes_image, inpaint_image, combined_mask)
         
         if result['success']:
             # Wait for the generated_image_path to be captured
@@ -215,7 +231,7 @@ with gr.Blocks(css=css) as demo:
             start_time = time.time()
             while not os.environ['GENERATED_IMAGE_PATH']:
                 if time.time() - start_time > timeout:
-                    yield gr.update(visible=False), gr.update(visible=False), gr.update(value="Timeout waiting for image generation.", visible=True), gr.update(visible=False)
+                    yield gr.update(visible=False), gr.update(visible=True), gr.update(visible=False), gr.update(value="Timeout waiting for image generation.", visible=True), gr.update(visible=False)
                     return
                 time.sleep(0.5)
             
@@ -227,23 +243,23 @@ with gr.Blocks(css=css) as demo:
                 link_html = f'<a href="{output_image_link}" target="_blank">Click here to view the generated image</a>'
                 
                 # Hide loading indicator and show the result
-                yield gr.update(visible=False), gr.update(value=generated_image_path, visible=True), gr.update(value=link_html, visible=True), gr.update(visible=False)
+                yield gr.update(visible=False), gr.update(visible=True), gr.update(value=generated_image_path, visible=True), gr.update(value=link_html, visible=True), gr.update(visible=False)
             else:
-                yield gr.update(visible=False), gr.update(visible=False), gr.update(value=f"Unable to generate public link. Local file path: {generated_image_path}", visible=True), gr.update(visible=False)
+                yield gr.update(visible=False), gr.update(visible=True), gr.update(visible=False), gr.update(value=f"Unable to generate public link. Local file path: {generated_image_path}", visible=True), gr.update(visible=False)
         else:
-            yield gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value=result['error'], visible=True)
+            yield gr.update(visible=False), gr.update(visible=True), gr.update(visible=False), gr.update(visible=False), gr.update(value=result['error'], visible=True)
 
     try_on_button.click(
         process_virtual_try_on,
         inputs=[clothes_input, person_input],
-        outputs=[loading_indicator, try_on_output, image_link, error_output]
+        outputs=[loading_indicator, masked_output, try_on_output, image_link, error_output]
     )
 
     gr.Markdown(
         """
         ## How It Works
         1. Choose a garment from our examples or upload your own.
-        2. Upload a photo of yourself.
+        2. Upload a photo of yourself and use the brush tool to indicate where you want the garment placed.
         3. Click "Try It On!" to see the magic happen!
 
         Experience the future of online shopping with ArbiTryOn - where technology meets style!
