@@ -15,8 +15,8 @@ from modules.masking import mask_clothes
 import json
 import torch
 from PIL import Image
+import matplotlib
 
-# Set up environment variables for sharing data
 os.environ['GRADIO_PUBLIC_URL'] = ''
 os.environ['GENERATED_IMAGE_PATH'] = ''
 os.environ['MASKED_IMAGE_PATH'] = ''
@@ -32,22 +32,13 @@ def virtual_try_on(clothes_image, person_image):
     try:
         clothes_image = HWC3(clothes_image)
         person_image = HWC3(person_image)
-
         target_size = (1152, 896)
         clothes_image = resize_image(clothes_image, target_size[0], target_size[1])
         person_image = resize_image(person_image, target_size[0], target_size[1])
-
-        # Generate mask using the mask_clothes function
+        # Using modules/masking.py
         person_image_pil = Image.fromarray(person_image)
         inpaint_mask = mask_clothes(person_image_pil)
-        inpaint_mask = np.array(inpaint_mask)
-
-        # Save the masked image
-        masked_image = person_image.copy()
-        masked_image[inpaint_mask == 255] = [255, 0, 0]  # Highlight masked area in red
-        masked_image_path = os.path.join(modules.config.path_outputs, f"masked_image_{int(time.time())}.png")
-        Image.fromarray(masked_image).save(masked_image_path)
-        os.environ['MASKED_IMAGE_PATH'] = masked_image_path
+        plt.imshow(inpaint_mask)
 
         loras = []
         for lora in modules.config.default_loras:
