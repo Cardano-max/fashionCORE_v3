@@ -1,4 +1,4 @@
-#webui2.py
+import gradio as gr
 import random
 import time
 import traceback
@@ -10,7 +10,12 @@ import modules.async_worker as worker
 import modules.constants as constants
 import modules.flags as flags
 from modules.util import HWC3, resize_image
+from modules.private_logger import get_current_html_path
 import json
+
+# Set up environment variables for sharing data
+os.environ['GRADIO_PUBLIC_URL'] = ''
+os.environ['GENERATED_IMAGE_PATH'] = ''
 
 def custom_exception_handler(exc_type, exc_value, exc_traceback):
     print("An unhandled exception occurred:")
