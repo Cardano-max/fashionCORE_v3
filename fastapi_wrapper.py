@@ -7,7 +7,6 @@ from PIL import Image
 import io
 import numpy as np
 
-# Import your virtual_try_on function
 from webui2 import virtual_try_on
 
 app = FastAPI()
