@@ -8,22 +8,34 @@ import modules.async_worker as worker
 import modules.constants as constants
 import modules.flags as flags
 from modules.util import HWC3, resize_image
-from modules.masking import mask_clothes
 import uuid
 from PIL import Image
 import matplotlib.pyplot as plt
 import io
 import random
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
 import uvicorn
+import cv2
+from transformers import SegformerImageProcessor, AutoModelForSemanticSegmentation
+import torch
+from datetime import datetime, timedelta
+
+app = FastAPI()
 
 # Set up environment variables for sharing data
 os.environ['GENERATED_IMAGE_PATH'] = ''
 os.environ['MASKED_IMAGE_PATH'] = ''
 
-app = FastAPI()
+# Initialize Segformer model and processor
+processor = SegformerImageProcessor.from_pretrained("sayeed99/segformer_b3_clothes")
+model = AutoModelForSemanticSegmentation.from_pretrained("sayeed99/segformer_b3_clothes")
+
+# Global variables for managing the queue and cooldown
+is_processing = False
+last_generation_time = None
+cooldown_period = timedelta(minutes=5)
 
 class GenerationID(BaseModel):
     id: str
@@ -35,38 +47,58 @@ def custom_exception_handler(exc_type, exc_value, exc_traceback):
 
 sys.excepthook = custom_exception_handler
 
+def generate_mask(image):
+    inputs = processor(images=image, return_tensors="pt")
+    outputs = model(**inputs)
+    logits = outputs.logits.cpu()
+
+    upsampled_logits = torch.nn.functional.interpolate(
+        logits,
+        size=image.size[::-1],
+        mode="bilinear",
+        align_corners=False,
+    )
+
+    pred_seg = upsampled_logits.argmax(dim=1)[0]
+    labels = [4, 14, 15]  # Upper Clothes 4, Left Arm 14, Right Arm 15
+
+    combined_mask = torch.zeros_like(pred_seg, dtype=torch.bool)
+    for label in labels:
+        combined_mask = torch.logical_or(combined_mask, pred_seg == label)
+
+    pred_seg_new = torch.zeros_like(pred_seg)
+    pred_seg_new[combined_mask] = 255
+
+    image_mask = pred_seg_new.numpy().astype(np.uint8)
+
+    kernel_size = 50
+    kernel = np.ones((kernel_size, kernel_size), np.uint8)
+    dilated_mask = cv2.dilate(image_mask, kernel, iterations=1)
+
+    return dilated_mask
+
 def virtual_try_on(clothes_image, person_image):
     try:
+        # Convert person_image to PIL Image
+        person_pil = Image.fromarray(person_image)
+
+        # Generate mask
+        inpaint_mask = generate_mask(person_pil)
+
+        # Resize images and mask
+        target_size = (512, 512)
         clothes_image = HWC3(clothes_image)
         person_image = HWC3(person_image)
+        inpaint_mask = HWC3(inpaint_mask)[:, :, 0]
 
-        target_size = (1152, 896)
         clothes_image = resize_image(clothes_image, target_size[0], target_size[1])
         person_image = resize_image(person_image, target_size[0], target_size[1])
-
-        # Generate mask using the mask_clothes function
-        person_image_pil = Image.fromarray(person_image)
-        inpaint_mask = mask_clothes(person_image_pil)
-
-        # Display and save the mask
-        plt.figure(figsize=(10, 10))
-        plt.imshow(inpaint_mask, cmap='gray')
-        plt.axis('off')
-        
-        # Save the plot to a byte buffer
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
-        buf.seek(0)
-        
-        # Generate a unique ID for this try-on session
-        session_id = str(uuid.uuid4())
+        inpaint_mask = resize_image(inpaint_mask, target_size[0], target_size[1])
 
         # Save the mask image
+        session_id = str(uuid.uuid4())
         masked_image_path = os.path.join(modules.config.path_outputs, f"masked_image_{session_id}.png")
-        with open(masked_image_path, 'wb') as f:
-            f.write(buf.getvalue())
-        
-        plt.close()  # Close the plot to free up memory
+        plt.imsave(masked_image_path, inpaint_mask, cmap='gray')
 
         os.environ['MASKED_IMAGE_PATH'] = masked_image_path
 
@@ -155,7 +187,6 @@ def virtual_try_on(clothes_image, person_image):
             time.sleep(0.1)
 
         if task.results and isinstance(task.results, list) and len(task.results) > 0:
-            # Rename the output file to include the session ID
             output_path = os.path.join(modules.config.path_outputs, f"try_on_{session_id}.png")
             os.rename(task.results[0], output_path)
             return {"success": True, "image_path": output_path, "masked_image_path": masked_image_path}
@@ -201,7 +232,17 @@ async def get_generation_status(generation_id: str):
     return JSONResponse(content={"status": "ready", "generation_id": generation_id})
 
 @app.post("/virtual-try-on/{generation_id}")
-async def run_virtual_try_on(generation_id: str):
+async def run_virtual_try_on(generation_id: str, background_tasks: BackgroundTasks):
+    global is_processing, last_generation_time
+
+    if is_processing:
+        return JSONResponse(content={"message": "Another generation is in progress. Please try again later."})
+
+    current_time = datetime.now()
+    if last_generation_time and (current_time - last_generation_time) < cooldown_period:
+        time_left = cooldown_period - (current_time - last_generation_time)
+        return JSONResponse(content={"message": f"Please wait {time_left.seconds} seconds before starting a new generation."})
+
     garment_path = f"temp_images/{generation_id}_garment.png"
     person_path = f"temp_images/{generation_id}_person.png"
     
@@ -209,21 +250,27 @@ async def run_virtual_try_on(generation_id: str):
         raise HTTPException(status_code=404, detail="Generation ID not found")
 
     try:
+        is_processing = True
         garment_image = np.array(Image.open(garment_path))
         person_image = np.array(Image.open(person_path))
 
         result = virtual_try_on(garment_image, person_image)
 
         if result['success']:
+            last_generation_time = datetime.now()
+            background_tasks.add_task(clean_up_files, generation_id)
             return JSONResponse(content={
                 "success": True,
                 "image_path": result['image_path'],
-                "masked_image_path": result['masked_image_path']
+                "masked_image_path": result['masked_image_path'],
+                "message": "Next generation will be enabled after 5 minutes"
             })
         else:
             raise HTTPException(status_code=500, detail=result['error'])
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        is_processing = False
 
 @app.get("/result-image/{image_type}/{generation_id}")
 async def get_result_image(image_type: str, generation_id: str):
@@ -237,5 +284,14 @@ async def get_result_image(image_type: str, generation_id: str):
 
     return FileResponse(image_path)
 
+def clean_up_files(generation_id: str):
+    garment_path = f"temp_images/{generation_id}_garment.png"
+    person_path = f"temp_images/{generation_id}_person.png"
+    
+    if os.path.exists(garment_path):
+        os.remove(garment_path)
+    if os.path.exists(person_path):
+        os.remove(person_path)
+
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host="0.0.0.0", port=8003)
