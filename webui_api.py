@@ -15,9 +15,14 @@ import matplotlib.pyplot as plt
 import io
 import random
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 import uvicorn
+
+# Set up environment variables for sharing data
+os.environ['GRADIO_PUBLIC_URL'] = ''
+os.environ['GENERATED_IMAGE_PATH'] = ''
+os.environ['MASKED_IMAGE_PATH'] = ''
 
 app = FastAPI()
 
@@ -40,24 +45,31 @@ def virtual_try_on(clothes_image, person_image):
         clothes_image = resize_image(clothes_image, target_size[0], target_size[1])
         person_image = resize_image(person_image, target_size[0], target_size[1])
 
+        # Generate mask using the mask_clothes function
         person_image_pil = Image.fromarray(person_image)
         inpaint_mask = mask_clothes(person_image_pil)
 
+        # Display and save the mask
         plt.figure(figsize=(10, 10))
         plt.imshow(inpaint_mask, cmap='gray')
         plt.axis('off')
         
+        # Save the plot to a byte buffer
         buf = io.BytesIO()
         plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
         buf.seek(0)
         
+        # Generate a unique ID for this try-on session
         session_id = str(uuid.uuid4())
 
+        # Save the mask image
         masked_image_path = os.path.join(modules.config.path_outputs, f"masked_image_{session_id}.png")
         with open(masked_image_path, 'wb') as f:
             f.write(buf.getvalue())
         
-        plt.close()
+        plt.close()  # Close the plot to free up memory
+
+        os.environ['MASKED_IMAGE_PATH'] = masked_image_path
 
         loras = []
         for lora in modules.config.default_loras:
@@ -146,7 +158,8 @@ def virtual_try_on(clothes_image, person_image):
         if task.results and isinstance(task.results, list) and len(task.results) > 0:
             output_path = os.path.join(modules.config.path_outputs, f"try_on_{session_id}.png")
             os.rename(task.results[0], output_path)
-            return {"success": True, "try_on_image": output_path, "masked_image": masked_image_path}
+            os.environ['GENERATED_IMAGE_PATH'] = output_path
+            return {"success": True, "session_id": session_id}
         else:
             return {"success": False, "error": "No results generated"}
 
@@ -166,6 +179,7 @@ async def upload_images(garment: UploadFile = File(...), person: UploadFile = Fi
 
         generation_id = str(uuid.uuid4())
         
+        # Store the images temporarily
         os.makedirs("temp_images", exist_ok=True)
         garment_path = f"temp_images/{generation_id}_garment.png"
         person_path = f"temp_images/{generation_id}_person.png"
@@ -204,25 +218,32 @@ async def run_virtual_try_on(generation_id: str):
         if result['success']:
             return JSONResponse(content={
                 "success": True,
-                "try_on_image": result['try_on_image'],
-                "masked_image": result['masked_image']
+                "session_id": result['session_id']
             })
         else:
             raise HTTPException(status_code=500, detail=result['error'])
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/result-image/{image_type}/{generation_id}")
-async def get_result_image(image_type: str, generation_id: str):
+@app.get("/result-image/{image_type}/{session_id}")
+async def get_result_image(image_type: str, session_id: str):
     if image_type not in ["try-on", "masked"]:
         raise HTTPException(status_code=400, detail="Invalid image type")
 
-    image_path = f"outputs/{generation_id}_{image_type}.png"
-    
+    gradio_url = os.environ.get('GRADIO_PUBLIC_URL', '')
+    if not gradio_url:
+        raise HTTPException(status_code=500, detail="Gradio public URL not set")
+
+    if image_type == "try-on":
+        image_path = f"outputs/try_on_{session_id}.png"
+    else:  # masked
+        image_path = f"outputs/masked_image_{session_id}.png"
+
     if not os.path.exists(image_path):
         raise HTTPException(status_code=404, detail="Image not found")
 
-    return FileResponse(image_path)
+    image_url = f"{gradio_url}/file={image_path}"
+    return RedirectResponse(url=image_url)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
