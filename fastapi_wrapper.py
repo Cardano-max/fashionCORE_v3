@@ -1,80 +1,85 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import JSONResponse
-import uvicorn
-import asyncio
-import uuid
+from fastapi.responses import JSONResponse, FileResponse
+from pydantic import BaseModel
+import numpy as np
 from PIL import Image
 import io
-import numpy as np
-
-from webui2 import virtual_try_on
+import uuid
+import os
+import time
+from webui_api import virtual_try_on
 
 app = FastAPI()
 
-# In-memory storage for job status
-job_status = {}
+class GenerationID(BaseModel):
+    id: str
 
-@app.post("/upload")
-async def upload_images(clothes: UploadFile = File(...), person: UploadFile = File(...), mask: UploadFile = File(...)):
+@app.post("/upload-images/")
+async def upload_images(garment: UploadFile = File(...), person: UploadFile = File(...)):
     try:
-        # Read and convert images to numpy arrays
-        clothes_image = np.array(Image.open(io.BytesIO(await clothes.read())))
-        person_image = np.array(Image.open(io.BytesIO(await person.read())))
-        mask_image = np.array(Image.open(io.BytesIO(await mask.read())))
+        garment_image = Image.open(io.BytesIO(await garment.read()))
+        person_image = Image.open(io.BytesIO(await person.read()))
+
+        garment_np = np.array(garment_image)
+        person_np = np.array(person_image)
+
+        generation_id = str(uuid.uuid4())
         
-        # Generate a unique job ID
-        job_id = str(uuid.uuid4())
+        # Store the images temporarily
+        os.makedirs("temp_images", exist_ok=True)
+        garment_path = f"temp_images/{generation_id}_garment.png"
+        person_path = f"temp_images/{generation_id}_person.png"
         
-        # Store images and update job status
-        job_status[job_id] = {
-            "status": "uploaded",
-            "clothes": clothes_image,
-            "person": person_image,
-            "mask": mask_image
-        }
-        
-        return {"job_id": job_id, "status": "Images uploaded successfully"}
+        garment_image.save(garment_path)
+        person_image.save(person_path)
+
+        return JSONResponse(content={"generation_id": generation_id, "message": "Images uploaded successfully"})
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/process/{job_id}")
-async def process_images(job_id: str):
-    if job_id not in job_status:
-        raise HTTPException(status_code=404, detail="Job not found")
+@app.get("/generation-id/{generation_id}")
+async def get_generation_status(generation_id: str):
+    garment_path = f"temp_images/{generation_id}_garment.png"
+    person_path = f"temp_images/{generation_id}_person.png"
     
-    job = job_status[job_id]
-    if job["status"] != "uploaded":
-        return {"job_id": job_id, "status": job["status"]}
+    if not (os.path.exists(garment_path) and os.path.exists(person_path)):
+        raise HTTPException(status_code=404, detail="Generation ID not found")
     
-    # Update job status
-    job["status"] = "processing"
-    
-    # Run the virtual try-on process asynchronously
-    asyncio.create_task(run_virtual_try_on(job_id))
-    
-    return {"job_id": job_id, "status": "Processing started"}
+    return JSONResponse(content={"status": "ready", "generation_id": generation_id})
 
-@app.get("/status/{job_id}")
-async def get_job_status(job_id: str):
-    if job_id not in job_status:
-        raise HTTPException(status_code=404, detail="Job not found")
+@app.post("/virtual-try-on/{generation_id}")
+async def run_virtual_try_on(generation_id: str):
+    garment_path = f"temp_images/{generation_id}_garment.png"
+    person_path = f"temp_images/{generation_id}_person.png"
     
-    job = job_status[job_id]
-    return {"job_id": job_id, "status": job["status"]}
+    if not (os.path.exists(garment_path) and os.path.exists(person_path)):
+        raise HTTPException(status_code=404, detail="Generation ID not found")
 
-async def run_virtual_try_on(job_id):
-    job = job_status[job_id]
     try:
-        result = virtual_try_on(job["clothes"], job["person"], job["mask"])
-        if result["success"]:
-            job["status"] = "completed"
-            job["result"] = result["image_path"]
-        else:
-            job["status"] = "failed"
-            job["error"] = result["error"]
-    except Exception as e:
-        job["status"] = "failed"
-        job["error"] = str(e)
+        garment_image = np.array(Image.open(garment_path))
+        person_image = np.array(Image.open(person_path))
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+        result = virtual_try_on(garment_image, person_image)
+
+        if result['success']:
+            return JSONResponse(content={
+                "success": True,
+                "image_path": result['image_path'],
+                "masked_image_path": result['masked_image_path']
+            })
+        else:
+            raise HTTPException(status_code=500, detail=result['error'])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/result-image/{image_type}/{generation_id}")
+async def get_result_image(image_type: str, generation_id: str):
+    if image_type not in ["try-on", "masked"]:
+        raise HTTPException(status_code=400, detail="Invalid image type")
+
+    image_path = f"outputs/{generation_id}_{image_type}.png"
+    
+    if not os.path.exists(image_path):
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    return FileResponse(image_path)
