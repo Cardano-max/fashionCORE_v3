@@ -1,3 +1,5 @@
+import gradio as gr
+import random
 import time
 import traceback
 import sys
@@ -8,45 +10,19 @@ import modules.async_worker as worker
 import modules.constants as constants
 import modules.flags as flags
 from modules.util import HWC3, resize_image
-import uuid
+from modules.private_logger import get_current_html_path
+import json
+import torch
 from PIL import Image
 import matplotlib.pyplot as plt
 import io
-import random
-from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Request
-from fastapi.responses import JSONResponse, FileResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-import uvicorn
 import cv2
 from transformers import SegformerImageProcessor, AutoModelForSemanticSegmentation
-import torch
-from datetime import datetime, timedelta
-
-app = FastAPI()
-
-# Create a directory for temporary files
-TEMP_DIR = "temp_outputs"
-os.makedirs(TEMP_DIR, exist_ok=True)
-
-# Serve the temp directory
-app.mount("/static", StaticFiles(directory=TEMP_DIR), name="static")
 
 # Set up environment variables for sharing data
+os.environ['GRADIO_PUBLIC_URL'] = ''
 os.environ['GENERATED_IMAGE_PATH'] = ''
 os.environ['MASKED_IMAGE_PATH'] = ''
-
-# Initialize Segformer model and processor
-processor = SegformerImageProcessor.from_pretrained("sayeed99/segformer_b3_clothes")
-model = AutoModelForSemanticSegmentation.from_pretrained("sayeed99/segformer_b3_clothes")
-
-# Global variables for managing the queue and cooldown
-is_processing = False
-last_generation_time = None
-cooldown_period = timedelta(minutes=5)
-
-class GenerationID(BaseModel):
-    id: str
 
 def custom_exception_handler(exc_type, exc_value, exc_traceback):
     print("An unhandled exception occurred:")
@@ -54,6 +30,10 @@ def custom_exception_handler(exc_type, exc_value, exc_traceback):
     sys.exit(1)
 
 sys.excepthook = custom_exception_handler
+
+# Initialize Segformer model and processor
+processor = SegformerImageProcessor.from_pretrained("sayeed99/segformer_b3_clothes")
+model = AutoModelForSemanticSegmentation.from_pretrained("sayeed99/segformer_b3_clothes")
 
 def generate_mask(image):
     inputs = processor(images=image, return_tensors="pt")
@@ -103,10 +83,22 @@ def virtual_try_on(clothes_image, person_image):
         person_image = resize_image(person_image, target_size[0], target_size[1])
         inpaint_mask = resize_image(inpaint_mask, target_size[0], target_size[1])
 
+        # Display and save the mask
+        plt.figure(figsize=(10, 10))
+        plt.imshow(inpaint_mask, cmap='gray')
+        plt.axis('off')
+        
+        # Save the plot to a byte buffer
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
+        buf.seek(0)
+        
         # Save the mask image
-        session_id = str(uuid.uuid4())
-        masked_image_path = os.path.join(TEMP_DIR, f"masked_image_{session_id}.png")
-        plt.imsave(masked_image_path, inpaint_mask, cmap='gray')
+        masked_image_path = os.path.join(modules.config.path_outputs, f"masked_image_{int(time.time())}.png")
+        with open(masked_image_path, 'wb') as f:
+            f.write(buf.getvalue())
+        
+        plt.close()  # Close the plot to free up memory
 
         os.environ['MASKED_IMAGE_PATH'] = masked_image_path
 
@@ -195,9 +187,7 @@ def virtual_try_on(clothes_image, person_image):
             time.sleep(0.1)
 
         if task.results and isinstance(task.results, list) and len(task.results) > 0:
-            output_path = os.path.join(TEMP_DIR, f"try_on_{session_id}.png")
-            os.rename(task.results[0], output_path)
-            return {"success": True, "image_path": output_path, "masked_image_path": masked_image_path}
+            return {"success": True, "image_path": task.results[0], "masked_image_path": masked_image_path}
         else:
             return {"success": False, "error": "No results generated"}
 
@@ -206,104 +196,192 @@ def virtual_try_on(clothes_image, person_image):
         traceback.print_exc()
         return {"success": False, "error": str(e)}
 
-@app.post("/upload-images/")
-async def upload_images(garment: UploadFile = File(...), person: UploadFile = File(...)):
-    try:
-        garment_image = Image.open(io.BytesIO(await garment.read()))
-        person_image = Image.open(io.BytesIO(await person.read()))
+example_garments = [
+    "images/1.png",
+    "images/2.png",
+    "images/3.png",
+    "images/4.png",
+    "images/5.png",
+    "images/6.png",
+    "images/7.png",
+    "images/8.png",
+]
 
-        garment_np = np.array(garment_image)
-        person_np = np.array(person_image)
+css = """
+.header {
+    text-align: center;
+    max-width: 700px;
+    margin: 0 auto;
+    padding-top: 20px;
+}
+.title {
+    font-size: 40px;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 10px;
+}
+.subtitle {
+    font-size: 18px;
+    color: #34495e;
+}
+.example-garments {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-around;
+}
+.example-garments img {
+    max-width: 150px;
+    margin: 10px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease;
+}
+.example-garments img:hover {
+    transform: scale(1.05);
+}
+.try-on-button {
+    background-color: #3498db;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    font-size: 18px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+.try-on-button:hover {
+    background-color: #2980b9;
+}
+.result-links {
+    margin-top: 20px;
+    text-align: center;
+}
+.result-links a {
+    color: #3498db;
+    text-decoration: none;
+    margin: 0 10px;
+}
+.result-links a:hover {
+    text-decoration: underline;
+}
+.loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255,255,255,.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+    -webkit-animation: spin 1s ease-in-out infinite;
+}
+@keyframes spin {
+    to { -webkit-transform: rotate(360deg); }
+}
+@-webkit-keyframes spin {
+    to { -webkit-transform: rotate(360deg); }
+}
+"""
 
-        generation_id = str(uuid.uuid4())
+with gr.Blocks(css=css) as demo:
+    gr.HTML(
+        """
+        <div class="header">
+            <h1 class="title">ArbiTryOn</h1>
+            <p class="subtitle">Experience Arbisoft's merchandise with our cutting-edge virtual try-on system!</p>
+        </div>
+        """
+    )
+
+    with gr.Row():
+        with gr.Column(scale=3):
+            gr.Markdown("### Choose a Garment")
+            example_garment_gallery = gr.Gallery(value=example_garments, columns=2, rows=2, label="Example Garments", elem_class="example-garments")
+            clothes_input = gr.Image(label="Selected Garment", source="upload", type="numpy")
+
+        with gr.Column(scale=3):
+            gr.Markdown("### Upload Your Photo")
+            person_input = gr.Image(label="Your Photo", source="upload", type="numpy")
+
+    try_on_button = gr.Button("Try It On!", elem_classes="try-on-button")
+    loading_indicator = gr.HTML('<div class="loading"></div>', visible=False)
+    masked_output = gr.Image(label="Masked Image", visible=False)
+    try_on_output = gr.Image(label="Virtual Try-On Result", visible=False)
+    image_link = gr.HTML(visible=True, elem_classes="result-links")
+    error_output = gr.Textbox(label="Error", visible=False)
+
+    def select_example_garment(evt: gr.SelectData):
+        return example_garments[evt.index]
+
+    example_garment_gallery.select(select_example_garment, None, clothes_input)
+
+    def process_virtual_try_on(clothes_image, person_image):
+        if clothes_image is None or person_image is None:
+            return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value="Please upload both a garment image and a person image.", visible=True)
         
-        # Store the images temporarily
-        os.makedirs("temp_images", exist_ok=True)
-        garment_path = f"temp_images/{generation_id}_garment.png"
-        person_path = f"temp_images/{generation_id}_person.png"
+        # Show loading indicator
+        yield gr.update(visible=True), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
         
-        garment_image.save(garment_path)
-        person_image.save(person_path)
-
-        return JSONResponse(content={"generation_id": generation_id, "message": "Images uploaded successfully"})
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-@app.get("/generation-id/{generation_id}")
-async def get_generation_status(generation_id: str):
-    garment_path = f"temp_images/{generation_id}_garment.png"
-    person_path = f"temp_images/{generation_id}_person.png"
-    
-    if not (os.path.exists(garment_path) and os.path.exists(person_path)):
-        raise HTTPException(status_code=404, detail="Generation ID not found")
-    
-    return JSONResponse(content={"status": "ready", "generation_id": generation_id})
-
-@app.post("/virtual-try-on/{generation_id}")
-async def run_virtual_try_on(generation_id: str, background_tasks: BackgroundTasks, request: Request):
-    global is_processing, last_generation_time
-
-    if is_processing:
-        return JSONResponse(content={"message": "Another generation is in progress. Please try again later."})
-
-    current_time = datetime.now()
-    if last_generation_time and (current_time - last_generation_time) < cooldown_period:
-        time_left = cooldown_period - (current_time - last_generation_time)
-        return JSONResponse(content={"message": f"Please wait {time_left.seconds} seconds before starting a new generation."})
-
-    garment_path = f"temp_images/{generation_id}_garment.png"
-    person_path = f"temp_images/{generation_id}_person.png"
-    
-    if not (os.path.exists(garment_path) and os.path.exists(person_path)):
-        raise HTTPException(status_code=404, detail="Generation ID not found")
-
-    try:
-        is_processing = True
-        garment_image = np.array(Image.open(garment_path))
-        person_image = np.array(Image.open(person_path))
-
-        result = virtual_try_on(garment_image, person_image)
-
+        result = virtual_try_on(clothes_image, person_image)
+        
         if result['success']:
-            last_generation_time = datetime.now()
-            background_tasks.add_task(clean_up_files, generation_id)
+            # Wait for the generated_image_path to be captured
+            timeout = 30  # seconds
+            start_time = time.time()
+            while not os.environ['GENERATED_IMAGE_PATH']:
+                if time.time() - start_time > timeout:
+                    yield gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value="Timeout waiting for image generation.", visible=True)
+                    return
+                time.sleep(0.5)
             
-            try_on_url = request.url_for('static', path=os.path.basename(result['image_path']))
-            masked_url = request.url_for('static', path=os.path.basename(result['masked_image_path']))
+            generated_image_path = os.environ['GENERATED_IMAGE_PATH']
+            masked_image_path = os.environ['MASKED_IMAGE_PATH']
+            gradio_url = os.environ['GRADIO_PUBLIC_URL']
             
-            return JSONResponse(content={
-                "success": True,
-                "try_on_image_url": str(try_on_url),
-                "masked_image_url": str(masked_url),
-                "message": "Next generation will be enabled after 5 minutes"
-            })
+            if gradio_url and generated_image_path and masked_image_path:
+                output_image_link = f"{gradio_url}/file={generated_image_path}"
+                masked_image_link = f"{gradio_url}/file={masked_image_path}"
+                link_html = f'<a href="{output_image_link}" target="_blank">View generated image</a> | <a href="{masked_image_link}" target="_blank">View masked image</a>'
+                
+                # Hide loading indicator and show the results
+                yield gr.update(visible=False), gr.update(value=masked_image_path, visible=True), gr.update(value=generated_image_path, visible=True), gr.update(value=link_html, visible=True), gr.update(visible=False)
+            else:
+                yield gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value=f"Unable to generate public links. Local file paths: Generated: {generated_image_path}, Masked: {masked_image_path}", visible=True), gr.update(visible=False)
         else:
-            raise HTTPException(status_code=500, detail=result['error'])
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        is_processing = False
+            yield gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value=result['error'], visible=True)
 
-@app.get("/result-image/{image_type}/{filename}")
-async def get_result_image(image_type: str, filename: str):
-    if image_type not in ["try-on", "masked"]:
-        raise HTTPException(status_code=400, detail="Invalid image type")
+    try_on_button.click(
+        process_virtual_try_on,
+        inputs=[clothes_input, person_input],
+        outputs=[loading_indicator, masked_output, try_on_output, image_link, error_output]
+    )
 
-    image_path = os.path.join(TEMP_DIR, filename)
+    gr.Markdown(
+        """
+        ## How It Works
+        1. Choose a garment from our examples or upload your own.
+        2. Upload a photo of yourself.
+        3. Click "Try It On!" to see the magic happen!
+
+        Experience the future of online shopping with ArbiTryOn - where technology meets style!
+        """
+    )
+
+demo.queue()
+
+def custom_launch():
+    # Launch the Gradio app
+    app, local_url, share_url = demo.launch(share=True, prevent_thread_lock=True)
     
-    if not os.path.exists(image_path):
-        raise HTTPException(status_code=404, detail="Image not found")
-
-    return FileResponse(image_path)
-
-def clean_up_files(generation_id: str):
-    garment_path = f"temp_images/{generation_id}_garment.png"
-    person_path = f"temp_images/{generation_id}_person.png"
+    # Capture and print the public URL
+    if share_url:
+        os.environ['GRADIO_PUBLIC_URL'] = share_url
+        print(f"Running on public URL: {share_url}")
     
-    if os.path.exists(garment_path):
-        os.remove(garment_path)
-    if os.path.exists(person_path):
-        os.remove(person_path)
+    return app, local_url, share_url
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8003)
+# Launch the app using our custom function
+custom_launch()
+
+# Keep the script running
+while True:
+    time.sleep(1)

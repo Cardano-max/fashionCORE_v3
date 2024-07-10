@@ -13,8 +13,9 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import io
 import random
-from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Request
+from fastapi.responses import JSONResponse, FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import uvicorn
 import cv2
@@ -23,6 +24,13 @@ import torch
 from datetime import datetime, timedelta
 
 app = FastAPI()
+
+# Create a directory for temporary files
+TEMP_DIR = "temp_outputs"
+os.makedirs(TEMP_DIR, exist_ok=True)
+
+# Serve the temp directory
+app.mount("/static", StaticFiles(directory=TEMP_DIR), name="static")
 
 # Set up environment variables for sharing data
 os.environ['GENERATED_IMAGE_PATH'] = ''
@@ -97,7 +105,7 @@ def virtual_try_on(clothes_image, person_image):
 
         # Save the mask image
         session_id = str(uuid.uuid4())
-        masked_image_path = os.path.join(modules.config.path_outputs, f"masked_image_{session_id}.png")
+        masked_image_path = os.path.join(TEMP_DIR, f"masked_image_{session_id}.png")
         plt.imsave(masked_image_path, inpaint_mask, cmap='gray')
 
         os.environ['MASKED_IMAGE_PATH'] = masked_image_path
@@ -187,7 +195,7 @@ def virtual_try_on(clothes_image, person_image):
             time.sleep(0.1)
 
         if task.results and isinstance(task.results, list) and len(task.results) > 0:
-            output_path = os.path.join(modules.config.path_outputs, f"try_on_{session_id}.png")
+            output_path = os.path.join(TEMP_DIR, f"try_on_{session_id}.png")
             os.rename(task.results[0], output_path)
             return {"success": True, "image_path": output_path, "masked_image_path": masked_image_path}
         else:
@@ -232,7 +240,7 @@ async def get_generation_status(generation_id: str):
     return JSONResponse(content={"status": "ready", "generation_id": generation_id})
 
 @app.post("/virtual-try-on/{generation_id}")
-async def run_virtual_try_on(generation_id: str, background_tasks: BackgroundTasks):
+async def run_virtual_try_on(generation_id: str, background_tasks: BackgroundTasks, request: Request):
     global is_processing, last_generation_time
 
     if is_processing:
@@ -259,10 +267,14 @@ async def run_virtual_try_on(generation_id: str, background_tasks: BackgroundTas
         if result['success']:
             last_generation_time = datetime.now()
             background_tasks.add_task(clean_up_files, generation_id)
+            
+            try_on_url = request.url_for('static', path=os.path.basename(result['image_path']))
+            masked_url = request.url_for('static', path=os.path.basename(result['masked_image_path']))
+            
             return JSONResponse(content={
                 "success": True,
-                "image_path": result['image_path'],
-                "masked_image_path": result['masked_image_path'],
+                "try_on_image_url": str(try_on_url),
+                "masked_image_url": str(masked_url),
                 "message": "Next generation will be enabled after 5 minutes"
             })
         else:
@@ -272,12 +284,12 @@ async def run_virtual_try_on(generation_id: str, background_tasks: BackgroundTas
     finally:
         is_processing = False
 
-@app.get("/result-image/{image_type}/{generation_id}")
-async def get_result_image(image_type: str, generation_id: str):
+@app.get("/result-image/{image_type}/{filename}")
+async def get_result_image(image_type: str, filename: str):
     if image_type not in ["try-on", "masked"]:
         raise HTTPException(status_code=400, detail="Invalid image type")
 
-    image_path = f"outputs/{generation_id}_{image_type}.png"
+    image_path = os.path.join(TEMP_DIR, filename)
     
     if not os.path.exists(image_path):
         raise HTTPException(status_code=404, detail="Image not found")
@@ -294,4 +306,4 @@ def clean_up_files(generation_id: str):
         os.remove(person_path)
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8005)
+    uvicorn.run(app, host="0.0.0.0", port=8006)
