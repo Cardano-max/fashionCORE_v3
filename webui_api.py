@@ -19,10 +19,6 @@ from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
 import uvicorn
 
-# Set up environment variables for sharing data
-os.environ['GENERATED_IMAGE_PATH'] = ''
-os.environ['MASKED_IMAGE_PATH'] = ''
-
 app = FastAPI()
 
 class GenerationID(BaseModel):
@@ -44,31 +40,24 @@ def virtual_try_on(clothes_image, person_image):
         clothes_image = resize_image(clothes_image, target_size[0], target_size[1])
         person_image = resize_image(person_image, target_size[0], target_size[1])
 
-        # Generate mask using the mask_clothes function
         person_image_pil = Image.fromarray(person_image)
         inpaint_mask = mask_clothes(person_image_pil)
 
-        # Display and save the mask
         plt.figure(figsize=(10, 10))
         plt.imshow(inpaint_mask, cmap='gray')
         plt.axis('off')
         
-        # Save the plot to a byte buffer
         buf = io.BytesIO()
         plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
         buf.seek(0)
         
-        # Generate a unique ID for this try-on session
         session_id = str(uuid.uuid4())
 
-        # Save the mask image
         masked_image_path = os.path.join(modules.config.path_outputs, f"masked_image_{session_id}.png")
         with open(masked_image_path, 'wb') as f:
             f.write(buf.getvalue())
         
-        plt.close()  # Close the plot to free up memory
-
-        os.environ['MASKED_IMAGE_PATH'] = masked_image_path
+        plt.close()
 
         loras = []
         for lora in modules.config.default_loras:
@@ -155,10 +144,9 @@ def virtual_try_on(clothes_image, person_image):
             time.sleep(0.1)
 
         if task.results and isinstance(task.results, list) and len(task.results) > 0:
-            # Rename the output file to include the session ID
             output_path = os.path.join(modules.config.path_outputs, f"try_on_{session_id}.png")
             os.rename(task.results[0], output_path)
-            return {"success": True, "image_path": output_path, "masked_image_path": masked_image_path}
+            return {"success": True, "try_on_image": output_path, "masked_image": masked_image_path}
         else:
             return {"success": False, "error": "No results generated"}
 
@@ -178,7 +166,6 @@ async def upload_images(garment: UploadFile = File(...), person: UploadFile = Fi
 
         generation_id = str(uuid.uuid4())
         
-        # Store the images temporarily
         os.makedirs("temp_images", exist_ok=True)
         garment_path = f"temp_images/{generation_id}_garment.png"
         person_path = f"temp_images/{generation_id}_person.png"
@@ -217,8 +204,8 @@ async def run_virtual_try_on(generation_id: str):
         if result['success']:
             return JSONResponse(content={
                 "success": True,
-                "image_path": result['image_path'],
-                "masked_image_path": result['masked_image_path']
+                "try_on_image": result['try_on_image'],
+                "masked_image": result['masked_image']
             })
         else:
             raise HTTPException(status_code=500, detail=result['error'])
