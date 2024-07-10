@@ -238,4 +238,4 @@ async def get_result_image(image_type: str, generation_id: str):
     return FileResponse(image_path)
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8001)
