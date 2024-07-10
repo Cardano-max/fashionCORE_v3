@@ -15,12 +15,11 @@ import matplotlib.pyplot as plt
 import io
 import random
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
 import uvicorn
 
 # Set up environment variables for sharing data
-os.environ['GRADIO_PUBLIC_URL'] = ''
 os.environ['GENERATED_IMAGE_PATH'] = ''
 os.environ['MASKED_IMAGE_PATH'] = ''
 
@@ -156,10 +155,10 @@ def virtual_try_on(clothes_image, person_image):
             time.sleep(0.1)
 
         if task.results and isinstance(task.results, list) and len(task.results) > 0:
+            # Rename the output file to include the session ID
             output_path = os.path.join(modules.config.path_outputs, f"try_on_{session_id}.png")
             os.rename(task.results[0], output_path)
-            os.environ['GENERATED_IMAGE_PATH'] = output_path
-            return {"success": True, "session_id": session_id}
+            return {"success": True, "image_path": output_path, "masked_image_path": masked_image_path}
         else:
             return {"success": False, "error": "No results generated"}
 
@@ -218,32 +217,25 @@ async def run_virtual_try_on(generation_id: str):
         if result['success']:
             return JSONResponse(content={
                 "success": True,
-                "session_id": result['session_id']
+                "image_path": result['image_path'],
+                "masked_image_path": result['masked_image_path']
             })
         else:
             raise HTTPException(status_code=500, detail=result['error'])
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/result-image/{image_type}/{session_id}")
-async def get_result_image(image_type: str, session_id: str):
+@app.get("/result-image/{image_type}/{generation_id}")
+async def get_result_image(image_type: str, generation_id: str):
     if image_type not in ["try-on", "masked"]:
         raise HTTPException(status_code=400, detail="Invalid image type")
 
-    gradio_url = os.environ.get('GRADIO_PUBLIC_URL', '')
-    if not gradio_url:
-        raise HTTPException(status_code=500, detail="Gradio public URL not set")
-
-    if image_type == "try-on":
-        image_path = f"outputs/try_on_{session_id}.png"
-    else:  # masked
-        image_path = f"outputs/masked_image_{session_id}.png"
-
+    image_path = f"outputs/{generation_id}_{image_type}.png"
+    
     if not os.path.exists(image_path):
         raise HTTPException(status_code=404, detail="Image not found")
 
-    image_url = f"{gradio_url}/file={image_path}"
-    return RedirectResponse(url=image_url)
+    return FileResponse(image_path)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
