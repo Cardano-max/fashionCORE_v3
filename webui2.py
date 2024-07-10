@@ -48,7 +48,7 @@ def generate_mask(image):
     )
 
     pred_seg = upsampled_logits.argmax(dim=1)[0]
-    labels = [4, 14, 15]  # Upper Clothes 4, Left Arm 14, Right Arm 15
+    labels = [4, 14, 15, 6, 12, 13]  # Upper Clothes 4, Left Arm 14, Right Arm 15
 
     combined_mask = torch.zeros_like(pred_seg, dtype=torch.bool)
     for label in labels:
