@@ -197,14 +197,14 @@ def virtual_try_on(clothes_image, person_image):
         return {"success": False, "error": str(e)}
 
 example_garments = [
-    "images/first.png",
-    "images/fourth.png",
-    "images/third.png",
-    "images/first.png",
-    "images/fifth.jpeg",
-    "images/sixth.png",
-    "images/seven.jpeg",
-    "images/eight.jpeg",
+    "images/1.png",
+    "images/2.png",
+    "images/3.png",
+    "images/4.png",
+    "images/5.jpeg",
+    "images/6.png",
+    "images/7.jpeg",
+    "images/8.jpeg",
 ]
 
 css = """
