@@ -1,4 +1,5 @@
 from enum import IntEnum, Enum
+from typing import Union, Optional
 
 disabled = 'Disabled'
 enabled = 'Enabled'
@@ -43,7 +44,7 @@ SAMPLER_EXTRA = {
     "uni_pc_bh2": ""
 }
 
-SAMPLERS = KSAMPLER | SAMPLER_EXTRA
+SAMPLERS = {**KSAMPLER, **SAMPLER_EXTRA}
 
 KSAMPLER_NAMES = list(KSAMPLER.keys())
 
@@ -125,11 +126,11 @@ class Performance(Enum):
     def list(cls) -> list:
         return list(map(lambda c: c.value, cls))
 
-    def steps(self) -> int | None:
+    def steps(self) -> Optional[int]:
         return Steps[self.name].value if Steps[self.name] else None
 
-    def steps_uov(self) -> int | None:
-        return StepsUOV[self.name].value if Steps[self.name] else None
+    def steps_uov(self) -> Optional[int]:
+        return StepsUOV[self.name].value if StepsUOV[self.name] else None
 
 
 performance_selections = [
