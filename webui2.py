@@ -238,99 +238,95 @@ example_garments = [
 ]
 
 css = """
-.header {
-    text-align: center;
-    max-width: 700px;
-    margin: 0 auto;
-    padding-top: 20px;
-}
-.title {
-    font-size: 40px;
-    font-weight: bold;
-    color: #2c3e50;
-    margin-bottom: 10px;
-}
-.subtitle {
-    font-size: 18px;
-    color: #34495e;
-}
-.example-garments {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-around;
-}
-.example-garments img {
-    max-width: 150px;
-    margin: 10px;
-    border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    transition: transform 0.3s ease;
-}
-.example-garments img:hover {
-    transform: scale(1.05);
-}
-.try-on-button {
-    background-color: #3498db;
-    color: white;
-    padding: 10px 20px;
-    border: none;
-    border-radius: 5px;
-    font-size: 18px;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-}
-.try-on-button:hover {
-    background-color: #2980b9;
-}
-.result-links {
-    margin-top: 20px;
-    text-align: center;
-}
-.result-links a {
-    color: #3498db;
-    text-decoration: none;
-    margin: 0 10px;
-}
-.result-links a:hover {
-    text-decoration: underline;
-}
-.loading {
-    display: inline-block;
-    width: 20px;
-    height: 20px;
-    border: 3px solid rgba(255,255,255,.3);
-    border-radius: 50%;
-    border-top-color: #fff;
-    animation: spin 1s ease-in-out infinite;
-    -webkit-animation: spin 1s ease-in-out infinite;
-}
-@keyframes spin {
-    to { -webkit-transform: rotate(360deg); }
-}
-@-webkit-keyframes spin {
-    to { -webkit-transform: rotate(360deg); }
-}
-
-.queue-info {
-    background-color: #f0f0f0;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    padding: 10px;
-    margin-top: 10px;
-    font-size: 16px;
-    text-align: center;
-}
-
-.error-message {
-    background-color: #ffebee;
-    border: 1px solid #ffcdd2;
-    border-radius: 5px;
-    padding: 10px;
-    margin-top: 10px;
-    font-size: 16px;
-    text-align: center;
-    color: #b71c1c;
-}
+    body, .gradio-container {
+        background-color: #1a1a1a;
+        color: #ffffff;
+    }
+    .header {
+        background-color: #2c2c2c;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .title {
+        font-size: 36px;
+        font-weight: bold;
+        color: #ffffff;
+        margin-bottom: 10px;
+    }
+    .subtitle {
+        font-size: 18px;
+        color: #b3b3b3;
+    }
+    .example-garments img {
+        border-radius: 10px;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .example-garments img:hover {
+        transform: scale(1.05);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.3);
+    }
+    .try-on-button {
+        background-color: #4CAF50;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 5px;
+        font-size: 18px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+    .try-on-button:hover {
+        background-color: #45a049;
+    }
+    .queue-info {
+        background-color: #2c2c2c;
+        border: 1px solid #3a3a3a;
+        border-radius: 5px;
+        padding: 15px;
+        margin-top: 15px;
+        font-size: 16px;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .error-message {
+        background-color: #ff3860;
+        border: 1px solid #ff1443;
+        border-radius: 5px;
+        padding: 15px;
+        margin-top: 15px;
+        font-size: 16px;
+        text-align: center;
+        color: #ffffff;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .result-links a {
+        color: #3273dc;
+        text-decoration: none;
+        margin: 0 10px;
+        transition: color 0.3s ease;
+    }
+    .result-links a:hover {
+        color: #2366d1;
+        text-decoration: underline;
+    }
+    .loading {
+        display: inline-block;
+        width: 30px;
+        height: 30px;
+        border: 3px solid rgba(255,255,255,.3);
+        border-radius: 50%;
+        border-top-color: #ffffff;
+        animation: spin 1s ease-in-out infinite;
+        -webkit-animation: spin 1s ease-in-out infinite;
+    }
+    @keyframes spin {
+        to { -webkit-transform: rotate(360deg); }
+    }
+    @-webkit-keyframes spin {
+        to { -webkit-transform: rotate(360deg); }
+    }
 """
 
 def process_queue():
@@ -350,7 +346,7 @@ import threading
 queue_thread = threading.Thread(target=process_queue, daemon=True)
 queue_thread.start()
 
-with gr.Blocks(css=css) as demo:
+with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
     gr.HTML(
         """
         <div class="header">
@@ -394,10 +390,21 @@ with gr.Blocks(css=css) as demo:
                 image_link: gr.update(visible=False)
             }
 
+        # Check if there's already a task in progress
+        if current_task_event.is_set():
+            return {
+                loading_indicator: gr.update(visible=True),
+                queue_info: gr.update(value="<p>The system is currently processing another request. Your try-on might take longer than usual. Please hold tight!</p>", visible=True),
+                masked_output: gr.update(visible=False),
+                try_on_output: gr.update(visible=False),
+                error_output: gr.update(visible=False),
+                image_link: gr.update(visible=False)
+            }
+
         # Show loading indicator and queue info
         yield {
             loading_indicator: gr.update(visible=True),
-            queue_info: gr.update(value="<p>Your request is being processed. Please wait...</p>", visible=True),
+            queue_info: gr.update(value="<p>Preparing your virtual try-on experience...</p>", visible=True),
             masked_output: gr.update(visible=False),
             try_on_output: gr.update(visible=False),
             error_output: gr.update(visible=False),
@@ -419,17 +426,17 @@ with gr.Blocks(css=css) as demo:
         while not generation_done:
             if current_task_event.is_set():
                 yield {
-                    queue_info: gr.update(value="<p>Your request is being processed. This may take a few minutes. Please wait...</p>", visible=True)
+                    queue_info: gr.update(value="<p>Your request is being processed. This may take a few minutes. We appreciate your patience!</p>", visible=True)
                 }
             else:
                 current_position = max(0, current_position - 1)
                 if current_position > 0:
                     yield {
-                        queue_info: gr.update(value=f"<p>Your request is in queue. Current position: {current_position}</p><p>Estimated wait time: {current_position * 2} minutes</p>", visible=True)
+                        queue_info: gr.update(value=f"<p>Your request is in queue. Current position: {current_position}</p><p>Estimated wait time: {current_position * 2} minutes</p><p>We're working hard to get to your request. Thank you for your patience!</p>", visible=True)
                     }
                 else:
                     yield {
-                        queue_info: gr.update(value="<p>Your request is next in line. Processing will begin shortly...</p>", visible=True)
+                        queue_info: gr.update(value="<p>Exciting news! Your request is next in line. Get ready to see your virtual try-on!</p>", visible=True)
                     }
             time.sleep(5)
 
@@ -440,7 +447,7 @@ with gr.Blocks(css=css) as demo:
                 masked_output: gr.update(visible=False),
                 try_on_output: gr.update(visible=False),
                 image_link: gr.update(visible=False),
-                error_output: gr.update(value="<p>An unexpected error occurred. Please try again later.</p>", visible=True)
+                error_output: gr.update(value="<p>Oops! An unexpected error occurred. Our team has been notified. Please try again later.</p>", visible=True)
             }
         elif generation_result['success']:
             generated_image_path = os.environ['GENERATED_IMAGE_PATH']
@@ -450,11 +457,11 @@ with gr.Blocks(css=css) as demo:
             if gradio_url and generated_image_path and masked_image_path:
                 output_image_link = f"{gradio_url}/file={generated_image_path}"
                 masked_image_link = f"{gradio_url}/file={masked_image_path}"
-                link_html = f'<a href="{output_image_link}" target="_blank">View generated image</a> | <a href="{masked_image_link}" target="_blank">View masked image</a>'
+                link_html = f'<a href="{output_image_link}" target="_blank">View Your Try-On Result</a> | <a href="{masked_image_link}" target="_blank">View Masked Image</a>'
 
                 yield {
                     loading_indicator: gr.update(visible=False),
-                    queue_info: gr.update(visible=False),
+                    queue_info: gr.update(value="<p>Your virtual try-on is complete! Check out the results below.</p>", visible=True),
                     masked_output: gr.update(value=masked_image_path, visible=True),
                     try_on_output: gr.update(value=generated_image_path, visible=True),
                     image_link: gr.update(value=link_html, visible=True),
@@ -467,7 +474,7 @@ with gr.Blocks(css=css) as demo:
                     masked_output: gr.update(visible=False),
                     try_on_output: gr.update(visible=False),
                     image_link: gr.update(visible=False),
-                    error_output: gr.update(value="<p>Unable to generate public links. Please try again later.</p>", visible=True)
+                    error_output: gr.update(value="<p>We encountered an issue while generating your try-on links. Our team is looking into it. Please try again later.</p>", visible=True)
                 }
         else:
             yield {
@@ -476,7 +483,7 @@ with gr.Blocks(css=css) as demo:
                 masked_output: gr.update(visible=False),
                 try_on_output: gr.update(visible=False),
                 image_link: gr.update(visible=False),
-                error_output: gr.update(value=f"<p>Error: {generation_result['error']}</p><p>Please try again later.</p>", visible=True)
+                error_output: gr.update(value=f"<p>We hit a snag: {generation_result['error']}</p><p>Don't worry, our team is on it. Please try again in a few moments.</p>", visible=True)
             }
 
     try_on_button.click(
@@ -488,11 +495,11 @@ with gr.Blocks(css=css) as demo:
     gr.Markdown(
         """
         ## How It Works
-        1. Choose a garment from our examples or upload your own.
-        2. Upload a photo of yourself.
-        3. Click "Try It On!" to see the magic happen!
+        1. Choose a garment from our curated collection or upload your own.
+        2. Upload a photo of yourself in a neutral pose.
+        3. Click "Try It On!" and watch the magic unfold!
 
-        Experience the future of online shopping with ArbiTryOn - where technology meets style!
+        Experience the future of online shopping with ArbiTryOn - where innovation meets style!
         """
     )
 
