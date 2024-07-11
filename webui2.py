@@ -74,11 +74,12 @@ def virtual_try_on(clothes_image, person_image):
         inpaint_mask = generate_mask(person_pil)
 
         # Resize images and mask
-        target_size = (512, 512)
+        target_size = (1024, 1024)
         clothes_image = HWC3(clothes_image)
         person_image = HWC3(person_image)
         inpaint_mask = HWC3(inpaint_mask)[:, :, 0]
 
+        # Use the original resize_image function from modules.util
         clothes_image = resize_image(clothes_image, target_size[0], target_size[1])
         person_image = resize_image(person_image, target_size[0], target_size[1])
         inpaint_mask = resize_image(inpaint_mask, target_size[0], target_size[1])
