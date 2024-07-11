@@ -18,7 +18,9 @@ import matplotlib.pyplot as plt
 import io
 import cv2
 from transformers import SegformerImageProcessor, AutoModelForSemanticSegmentation
-from modules.flags import Performance  # Import the Performance class
+from modules.flags import Performance
+from queue import Queue
+from threading import Lock
 
 # Set up environment variables for sharing data
 os.environ['GRADIO_PUBLIC_URL'] = ''
@@ -35,6 +37,11 @@ sys.excepthook = custom_exception_handler
 # Initialize Segformer model and processor
 processor = SegformerImageProcessor.from_pretrained("sayeed99/segformer_b3_clothes")
 model = AutoModelForSemanticSegmentation.from_pretrained("sayeed99/segformer_b3_clothes")
+
+# Initialize queue and lock
+task_queue = Queue()
+queue_lock = Lock()
+
 
 def generate_mask(image):
     inputs = processor(images=image, return_tensors="pt")
@@ -304,6 +311,21 @@ css = """
 }
 """
 
+def process_queue():
+    while True:
+        task = task_queue.get()
+        if task is None:
+            break
+        clothes_image, person_image, result_callback = task
+        result = virtual_try_on(clothes_image, person_image)
+        result_callback(result)
+        task_queue.task_done()
+
+# Start the queue processing thread
+import threading
+queue_thread = threading.Thread(target=process_queue, daemon=True)
+queue_thread.start()
+
 with gr.Blocks(css=css) as demo:
     gr.HTML(
         """
@@ -326,6 +348,7 @@ with gr.Blocks(css=css) as demo:
 
     try_on_button = gr.Button("Try It On!", elem_classes="try-on-button")
     loading_indicator = gr.HTML('<div class="loading"></div>', visible=False)
+    queue_info = gr.HTML(visible=False)
     masked_output = gr.Image(label="Masked Image", visible=False)
     try_on_output = gr.Image(label="Virtual Try-On Result", visible=False)
     image_link = gr.HTML(visible=True, elem_classes="result-links")
@@ -338,43 +361,90 @@ with gr.Blocks(css=css) as demo:
 
     def process_virtual_try_on(clothes_image, person_image):
         if clothes_image is None or person_image is None:
-            return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value="Please upload both a garment image and a person image.", visible=True)
-        
-        # Show loading indicator
-        yield gr.update(visible=True), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
-        
-        result = virtual_try_on(clothes_image, person_image)
-        
-        if result['success']:
-            # Wait for the generated_image_path to be captured
-            timeout = 30  # seconds
-            start_time = time.time()
-            while not os.environ['GENERATED_IMAGE_PATH']:
-                if time.time() - start_time > timeout:
-                    yield gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value="Timeout waiting for image generation.", visible=True)
-                    return
-                time.sleep(0.5)
-            
+            return {
+                loading_indicator: gr.update(visible=False),
+                queue_info: gr.update(visible=False),
+                masked_output: gr.update(visible=False),
+                try_on_output: gr.update(visible=False),
+                error_output: gr.update(value="Please upload both a garment image and a person image.", visible=True),
+                image_link: gr.update(visible=False)
+            }
+
+        # Show loading indicator and queue info
+        yield {
+            loading_indicator: gr.update(visible=True),
+            queue_info: gr.update(value="Your request is being processed. Please wait...", visible=True),
+            masked_output: gr.update(visible=False),
+            try_on_output: gr.update(visible=False),
+            error_output: gr.update(visible=False),
+            image_link: gr.update(visible=False)
+        }
+
+        def result_callback(result):
+            nonlocal generation_done
+            generation_done = True
+            generation_result = result
+
+        with queue_lock:
+            current_position = task_queue.qsize()
+            task_queue.put((clothes_image, person_image, result_callback))
+
+        generation_done = False
+        generation_result = None
+
+        while not generation_done:
+            current_position = max(0, current_position - 1)
+            if current_position > 0:
+                yield {
+                    queue_info: gr.update(value=f"Your request is in queue. Current position: {current_position}", visible=True)
+                }
+            else:
+                yield {
+                    queue_info: gr.update(value="Processing your request...", visible=True)
+                }
+            time.sleep(1)
+
+        if generation_result['success']:
             generated_image_path = os.environ['GENERATED_IMAGE_PATH']
             masked_image_path = os.environ['MASKED_IMAGE_PATH']
             gradio_url = os.environ['GRADIO_PUBLIC_URL']
-            
+
             if gradio_url and generated_image_path and masked_image_path:
                 output_image_link = f"{gradio_url}/file={generated_image_path}"
                 masked_image_link = f"{gradio_url}/file={masked_image_path}"
                 link_html = f'<a href="{output_image_link}" target="_blank">View generated image</a> | <a href="{masked_image_link}" target="_blank">View masked image</a>'
-                
-                # Hide loading indicator and show the results
-                yield gr.update(visible=False), gr.update(value=masked_image_path, visible=True), gr.update(value=generated_image_path, visible=True), gr.update(value=link_html, visible=True), gr.update(visible=False)
+
+                yield {
+                    loading_indicator: gr.update(visible=False),
+                    queue_info: gr.update(visible=False),
+                    masked_output: gr.update(value=masked_image_path, visible=True),
+                    try_on_output: gr.update(value=generated_image_path, visible=True),
+                    image_link: gr.update(value=link_html, visible=True),
+                    error_output: gr.update(visible=False)
+                }
             else:
-                yield gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value=f"Unable to generate public links. Local file paths: Generated: {generated_image_path}, Masked: {masked_image_path}", visible=True), gr.update(visible=False)
+                yield {
+                    loading_indicator: gr.update(visible=False),
+                    queue_info: gr.update(visible=False),
+                    masked_output: gr.update(visible=False),
+                    try_on_output: gr.update(visible=False),
+                    image_link: gr.update(value=f"Unable to generate public links. Local file paths: Generated: {generated_image_path}, Masked: {masked_image_path}", visible=True),
+                    error_output: gr.update(visible=False)
+                }
         else:
-            yield gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value=result['error'], visible=True)
+            yield {
+                loading_indicator: gr.update(visible=False),
+                queue_info: gr.update(visible=False),
+                masked_output: gr.update(visible=False),
+                try_on_output: gr.update(visible=False),
+                image_link: gr.update(visible=False),
+                error_output: gr.update(value=generation_result['error'], visible=True)
+            }
 
     try_on_button.click(
         process_virtual_try_on,
         inputs=[clothes_input, person_input],
-        outputs=[loading_indicator, masked_output, try_on_output, image_link, error_output]
+        outputs=[loading_indicator, queue_info, masked_output, try_on_output, image_link, error_output]
     )
 
     gr.Markdown(
@@ -391,17 +461,14 @@ with gr.Blocks(css=css) as demo:
 demo.queue()
 
 def custom_launch():
-    # Launch the Gradio app
     app, local_url, share_url = demo.launch(share=True, prevent_thread_lock=True)
     
-    # Capture and print the public URL
     if share_url:
         os.environ['GRADIO_PUBLIC_URL'] = share_url
         print(f"Running on public URL: {share_url}")
     
     return app, local_url, share_url
 
-# Launch the app using our custom function
 custom_launch()
 
 # Keep the script running
