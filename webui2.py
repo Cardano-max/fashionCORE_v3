@@ -324,10 +324,25 @@ css = """
     @-webkit-keyframes spin {
         to { -webkit-transform: rotate(360deg); }
     }
-"""
-
-css = """
-    # ... (keep the existing CSS as is)
+    .instruction-images {
+        display: flex;
+        justify-content: space-around;
+        margin-top: 20px;
+    }
+    .instruction-image {
+        text-align: center;
+        max-width: 45%;
+    }
+    .instruction-image img {
+        max-width: 100%;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .instruction-caption {
+        margin-top: 10px;
+        font-size: 14px;
+        color: #b3b3b3;
+    }
 """
 
 def process_queue():
@@ -368,6 +383,21 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
             gr.Markdown("### Upload Your Photo")
             person_input = gr.Image(label="Your Photo", source="upload", type="numpy")
 
+    gr.HTML(
+        """
+        <div class="instruction-images">
+            <div class="instruction-image">
+                <img src="path_to_correct_pose_image.jpg" alt="Correct pose">
+                <p class="instruction-caption">✅ Correct: Neutral pose, facing forward</p>
+            </div>
+            <div class="instruction-image">
+                <img src="path_to_incorrect_pose_image.jpg" alt="Incorrect pose">
+                <p class="instruction-caption">❌ Incorrect: Angled or complex pose</p>
+            </div>
+        </div>
+        """
+    )
+
     try_on_button = gr.Button("Try It On!", elem_classes="try-on-button")
     loading_indicator = gr.HTML('<div class="loading"></div>', visible=False)
     status_info = gr.HTML(visible=False, elem_classes="queue-info")
@@ -375,6 +405,18 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
     try_on_output = gr.Image(label="Virtual Try-On Result", visible=False)
     image_link = gr.HTML(visible=True, elem_classes="result-links")
     error_output = gr.HTML(visible=False, elem_classes="error-message")
+
+    queue_note = gr.HTML(
+        """
+        <div class="queue-note" style="background-color: #3a3a3a; padding: 15px; border-radius: 5px; margin-top: 20px;">
+            <p style="margin: 0; color: #ffffff;">
+                <strong>Note:</strong> If you see a queue status, it means your request will take some extra time to start. 
+                Don't worry, we're processing it as fast as we can. Thank you for your patience!
+            </p>
+        </div>
+        """,
+        visible=True
+    )
 
     def select_example_garment(evt: gr.SelectData):
         return example_garments[evt.index]
@@ -389,24 +431,21 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                 masked_output: gr.update(visible=False),
                 try_on_output: gr.update(visible=False),
                 error_output: gr.update(value="<p>Please upload both a garment image and a person image.</p>", visible=True),
-                image_link: gr.update(visible=False)
+                image_link: gr.update(visible=False),
+                queue_note: gr.update(visible=True)
             }
             return
-
-        # Immediate feedback when button is clicked
-        yield {
-            loading_indicator: gr.update(visible=True),
-            status_info: gr.update(value="<p>Preparing your virtual try-on experience...</p>", visible=True),
-            masked_output: gr.update(visible=False),
-            try_on_output: gr.update(visible=False),
-            error_output: gr.update(visible=False),
-            image_link: gr.update(visible=False)
-        }
 
         # Check if there's already a task in progress
         if current_task_event.is_set():
             yield {
+                loading_indicator: gr.update(visible=True),
                 status_info: gr.update(value="<p>The system is currently processing another request. Your try-on will be queued and might take longer than usual. Please hold tight!</p>", visible=True),
+                masked_output: gr.update(visible=False),
+                try_on_output: gr.update(visible=False),
+                error_output: gr.update(visible=False),
+                image_link: gr.update(visible=False),
+                queue_note: gr.update(visible=True)
             }
 
         def result_callback(result):
@@ -424,15 +463,33 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
         while not generation_done:
             if current_task_event.is_set() and current_position == 0:
                 yield {
+                    loading_indicator: gr.update(visible=True),
                     status_info: gr.update(value="<p>Your request is being processed. This may take a few minutes. We appreciate your patience!</p>", visible=True),
+                    masked_output: gr.update(visible=False),
+                    try_on_output: gr.update(visible=False),
+                    error_output: gr.update(visible=False),
+                    image_link: gr.update(visible=False),
+                    queue_note: gr.update(visible=True)
                 }
             elif current_position > 0:
                 yield {
+                    loading_indicator: gr.update(visible=True),
                     status_info: gr.update(value=f"<p>Your request is in queue. Current position: {current_position}</p><p>Estimated wait time: {current_position * 2} minutes</p><p>We're working hard to get to your request. Thank you for your patience!</p>", visible=True),
+                    masked_output: gr.update(visible=False),
+                    try_on_output: gr.update(visible=False),
+                    error_output: gr.update(visible=False),
+                    image_link: gr.update(visible=False),
+                    queue_note: gr.update(visible=True)
                 }
             else:
                 yield {
+                    loading_indicator: gr.update(visible=True),
                     status_info: gr.update(value="<p>Exciting news! Your request is next in line. Get ready to see your virtual try-on!</p>", visible=True),
+                    masked_output: gr.update(visible=False),
+                    try_on_output: gr.update(visible=False),
+                    error_output: gr.update(visible=False),
+                    image_link: gr.update(visible=False),
+                    queue_note: gr.update(visible=True)
                 }
             
             queue_update_event.wait(timeout=5)
@@ -446,7 +503,8 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                 masked_output: gr.update(visible=False),
                 try_on_output: gr.update(visible=False),
                 image_link: gr.update(visible=False),
-                error_output: gr.update(value="<p>Oops! An unexpected error occurred. Our team has been notified. Please try again later.</p>", visible=True)
+                error_output: gr.update(value="<p>Oops! An unexpected error occurred. Our team has been notified. Please try again later.</p>", visible=True),
+                queue_note: gr.update(visible=True)
             }
         elif generation_result['success']:
             generated_image_path = os.environ['GENERATED_IMAGE_PATH']
@@ -464,7 +522,8 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                     masked_output: gr.update(value=masked_image_path, visible=True),
                     try_on_output: gr.update(value=generated_image_path, visible=True),
                     image_link: gr.update(value=link_html, visible=True),
-                    error_output: gr.update(visible=False)
+                    error_output: gr.update(visible=False),
+                    queue_note: gr.update(visible=False)
                 }
             else:
                 yield {
@@ -473,7 +532,8 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                     masked_output: gr.update(visible=False),
                     try_on_output: gr.update(visible=False),
                     image_link: gr.update(visible=False),
-                    error_output: gr.update(value="<p>We encountered an issue while generating your try-on links. Our team is looking into it. Please try again later.</p>", visible=True)
+                    error_output: gr.update(value="<p>We encountered an issue while generating your try-on links. Our team is looking into it. Please try again later.</p>", visible=True),
+                    queue_note: gr.update(visible=True)
                 }
         else:
             yield {
@@ -482,39 +542,21 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                 masked_output: gr.update(visible=False),
                 try_on_output: gr.update(visible=False),
                 image_link: gr.update(visible=False),
-                error_output: gr.update(value=f"<p>We hit a snag: {generation_result['error']}</p><p>Don't worry, our team is on it. Please try again in a few moments.</p>", visible=True)
+                error_output: gr.update(value=f"<p>We hit a snag: {generation_result['error']}</p><p>Don't worry, our team is on it. Please try again in a few moments.</p>", visible=True),
+                queue_note: gr.update(visible=True)
             }
-
-    def on_image_upload(image, image_type):
-        if image is not None:
-            return gr.update(value=image), gr.update(value=f"<p>{image_type} uploaded successfully!</p>", visible=True)
-        return gr.update(), gr.update(visible=False)
-
-    clothes_input.upload(
-        on_image_upload,
-        inputs=[clothes_input],
-        outputs=[clothes_input, status_info],
-        _js="(img) => [img, 'Garment']"
-    )
-
-    person_input.upload(
-        on_image_upload,
-        inputs=[person_input],
-        outputs=[person_input, status_info],
-        _js="(img) => [img, 'Person']"
-    )
 
     try_on_button.click(
         process_virtual_try_on,
         inputs=[clothes_input, person_input],
-        outputs=[loading_indicator, status_info, masked_output, try_on_output, image_link, error_output]
+        outputs=[loading_indicator, status_info, masked_output, try_on_output, image_link, error_output, queue_note]
     )
 
     gr.Markdown(
         """
         ## How It Works
         1. Choose a garment from our curated collection or upload your own.
-        2. Upload a photo of yourself in a neutral pose.
+        2. Upload a photo of yourself in a neutral pose (see instructions above).
         3. Click "Try It On!" and watch the magic unfold!
 
         Experience the future of online shopping with ArbiTryOn - where innovation meets style!
