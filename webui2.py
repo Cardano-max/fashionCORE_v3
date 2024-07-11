@@ -326,6 +326,10 @@ css = """
     }
 """
 
+css = """
+    # ... (keep the existing CSS as is)
+"""
+
 def process_queue():
     while True:
         task = task_queue.get()
@@ -389,15 +393,20 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
             }
             return
 
+        # Immediate feedback when button is clicked
+        yield {
+            loading_indicator: gr.update(visible=True),
+            status_info: gr.update(value="<p>Preparing your virtual try-on experience...</p>", visible=True),
+            masked_output: gr.update(visible=False),
+            try_on_output: gr.update(visible=False),
+            error_output: gr.update(visible=False),
+            image_link: gr.update(visible=False)
+        }
+
         # Check if there's already a task in progress
         if current_task_event.is_set():
             yield {
-                loading_indicator: gr.update(visible=True),
                 status_info: gr.update(value="<p>The system is currently processing another request. Your try-on will be queued and might take longer than usual. Please hold tight!</p>", visible=True),
-                masked_output: gr.update(visible=False),
-                try_on_output: gr.update(visible=False),
-                error_output: gr.update(visible=False),
-                image_link: gr.update(visible=False)
             }
 
         def result_callback(result):
@@ -415,30 +424,15 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
         while not generation_done:
             if current_task_event.is_set() and current_position == 0:
                 yield {
-                    loading_indicator: gr.update(visible=True),
                     status_info: gr.update(value="<p>Your request is being processed. This may take a few minutes. We appreciate your patience!</p>", visible=True),
-                    masked_output: gr.update(visible=False),
-                    try_on_output: gr.update(visible=False),
-                    error_output: gr.update(visible=False),
-                    image_link: gr.update(visible=False)
                 }
             elif current_position > 0:
                 yield {
-                    loading_indicator: gr.update(visible=True),
                     status_info: gr.update(value=f"<p>Your request is in queue. Current position: {current_position}</p><p>Estimated wait time: {current_position * 2} minutes</p><p>We're working hard to get to your request. Thank you for your patience!</p>", visible=True),
-                    masked_output: gr.update(visible=False),
-                    try_on_output: gr.update(visible=False),
-                    error_output: gr.update(visible=False),
-                    image_link: gr.update(visible=False)
                 }
             else:
                 yield {
-                    loading_indicator: gr.update(visible=True),
                     status_info: gr.update(value="<p>Exciting news! Your request is next in line. Get ready to see your virtual try-on!</p>", visible=True),
-                    masked_output: gr.update(visible=False),
-                    try_on_output: gr.update(visible=False),
-                    error_output: gr.update(visible=False),
-                    image_link: gr.update(visible=False)
                 }
             
             queue_update_event.wait(timeout=5)
@@ -490,6 +484,25 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                 image_link: gr.update(visible=False),
                 error_output: gr.update(value=f"<p>We hit a snag: {generation_result['error']}</p><p>Don't worry, our team is on it. Please try again in a few moments.</p>", visible=True)
             }
+
+    def on_image_upload(image, image_type):
+        if image is not None:
+            return gr.update(value=image), gr.update(value=f"<p>{image_type} uploaded successfully!</p>", visible=True)
+        return gr.update(), gr.update(visible=False)
+
+    clothes_input.upload(
+        on_image_upload,
+        inputs=[clothes_input],
+        outputs=[clothes_input, status_info],
+        _js="(img) => [img, 'Garment']"
+    )
+
+    person_input.upload(
+        on_image_upload,
+        inputs=[person_input],
+        outputs=[person_input, status_info],
+        _js="(img) => [img, 'Person']"
+    )
 
     try_on_button.click(
         process_virtual_try_on,
