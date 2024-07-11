@@ -9,13 +9,11 @@ import modules.config
 import modules.async_worker as worker
 import modules.constants as constants
 import modules.flags as flags
-from modules.util import HWC3, resize_image
+from modules.util import HWC3, resize_image, get_shape_ceil, generate_temp_filename
 from modules.private_logger import get_current_html_path
 import json
 import torch
 from PIL import Image
-import matplotlib.pyplot as plt
-import io
 import cv2
 from transformers import SegformerImageProcessor, AutoModelForSemanticSegmentation
 
@@ -65,7 +63,7 @@ def generate_mask(image):
 
     return dilated_mask
 
-def virtual_try_on(clothes_image, person_image):
+def virtual_try_on(clothes_image, person_image, aspect_ratio):
     try:
         # Convert person_image to PIL Image
         person_pil = Image.fromarray(person_image)
@@ -73,33 +71,23 @@ def virtual_try_on(clothes_image, person_image):
         # Generate mask
         inpaint_mask = generate_mask(person_pil)
 
+        # Parse the aspect ratio
+        width, height = map(int, aspect_ratio.split('×'))
+
         # Resize images and mask
-        target_size = (1024, 1024)
+        shape_ceil = get_shape_ceil(height, width)
         clothes_image = HWC3(clothes_image)
         person_image = HWC3(person_image)
         inpaint_mask = HWC3(inpaint_mask)[:, :, 0]
 
-        clothes_image = resize_image(clothes_image, target_size[0], target_size[1])
-        person_image = resize_image(person_image, target_size[0], target_size[1])
-        inpaint_mask = resize_image(inpaint_mask, target_size[0], target_size[1])
+        clothes_image = resize_image(clothes_image, width, height)
+        person_image = resize_image(person_image, width, height)
+        inpaint_mask = resize_image(inpaint_mask, width, height)
 
-        # Display and save the mask
-        plt.figure(figsize=(10, 10))
-        plt.imshow(inpaint_mask, cmap='gray')
-        plt.axis('off')
-        
-        # Save the plot to a byte buffer
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
-        buf.seek(0)
-        
         # Save the mask image
-        masked_image_path = os.path.join(modules.config.path_outputs, f"masked_image_{int(time.time())}.png")
-        with open(masked_image_path, 'wb') as f:
-            f.write(buf.getvalue())
+        _, masked_image_path, _ = generate_temp_filename(folder=modules.config.path_outputs, extension='png')
+        cv2.imwrite(masked_image_path, inpaint_mask)
         
-        plt.close()  # Close the plot to free up memory
-
         os.environ['MASKED_IMAGE_PATH'] = masked_image_path
 
         loras = []
@@ -113,7 +101,7 @@ def virtual_try_on(clothes_image, person_image):
             False,
             modules.config.default_styles,
             modules.config.default_performance,
-            modules.config.default_aspect_ratio,
+            aspect_ratio,
             1,
             modules.config.default_output_format,
             random.randint(constants.MIN_SEED, constants.MAX_SEED),
@@ -286,8 +274,8 @@ with gr.Blocks(css=css) as demo:
     gr.HTML(
         """
         <div class="header">
-            <h1 class="title">ArbiTryOn</h1>
-            <p class="subtitle">Experience Arbisoft's merchandise with our cutting-edge virtual try-on system!</p>
+            <h1 class="title">Virtual Try-On System</h1>
+            <p class="subtitle">Experience our cutting-edge virtual try-on system!</p>
         </div>
         """
     )
@@ -302,6 +290,14 @@ with gr.Blocks(css=css) as demo:
             gr.Markdown("### Upload Your Photo")
             person_input = gr.Image(label="Your Photo", source="upload", type="numpy")
 
+    aspect_ratio_selection = gr.Radio(
+        label='Aspect Ratios', 
+        choices=modules.config.available_aspect_ratios,
+        value=modules.config.default_aspect_ratio, 
+        info='width × height',
+        elem_classes='aspect_ratios'
+    )
+
     try_on_button = gr.Button("Try It On!", elem_classes="try-on-button")
     loading_indicator = gr.HTML('<div class="loading"></div>', visible=False)
     masked_output = gr.Image(label="Masked Image", visible=False)
@@ -314,27 +310,18 @@ with gr.Blocks(css=css) as demo:
 
     example_garment_gallery.select(select_example_garment, None, clothes_input)
 
-    def process_virtual_try_on(clothes_image, person_image):
+    def process_virtual_try_on(clothes_image, person_image, aspect_ratio):
         if clothes_image is None or person_image is None:
             return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value="Please upload both a garment image and a person image.", visible=True)
         
         # Show loading indicator
         yield gr.update(visible=True), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
         
-        result = virtual_try_on(clothes_image, person_image)
+        result = virtual_try_on(clothes_image, person_image, aspect_ratio)
         
         if result['success']:
-            # Wait for the generated_image_path to be captured
-            timeout = 30  # seconds
-            start_time = time.time()
-            while not os.environ['GENERATED_IMAGE_PATH']:
-                if time.time() - start_time > timeout:
-                    yield gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(value="Timeout waiting for image generation.", visible=True)
-                    return
-                time.sleep(0.5)
-            
-            generated_image_path = os.environ['GENERATED_IMAGE_PATH']
-            masked_image_path = os.environ['MASKED_IMAGE_PATH']
+            generated_image_path = result['image_path']
+            masked_image_path = result['masked_image_path']
             gradio_url = os.environ['GRADIO_PUBLIC_URL']
             
             if gradio_url and generated_image_path and masked_image_path:
@@ -351,7 +338,7 @@ with gr.Blocks(css=css) as demo:
 
     try_on_button.click(
         process_virtual_try_on,
-        inputs=[clothes_input, person_input],
+        inputs=[clothes_input, person_input, aspect_ratio_selection],
         outputs=[loading_indicator, masked_output, try_on_output, image_link, error_output]
     )
 
@@ -360,28 +347,25 @@ with gr.Blocks(css=css) as demo:
         ## How It Works
         1. Choose a garment from our examples or upload your own.
         2. Upload a photo of yourself.
-        3. Click "Try It On!" to see the magic happen!
+        3. Select an aspect ratio for the output image.
+        4. Click "Try It On!" to see the magic happen!
 
-        Experience the future of online shopping with ArbiTryOn - where technology meets style!
+        Experience the future of online shopping with our Virtual Try-On System!
         """
     )
 
-demo.queue()
-
 def custom_launch():
-    # Launch the Gradio app
     app, local_url, share_url = demo.launch(share=True, prevent_thread_lock=True)
     
-    # Capture and print the public URL
     if share_url:
         os.environ['GRADIO_PUBLIC_URL'] = share_url
         print(f"Running on public URL: {share_url}")
     
     return app, local_url, share_url
 
-# Launch the app using our custom function
-custom_launch()
-
-# Keep the script running
-while True:
-    time.sleep(1)
+if __name__ == "__main__":
+    custom_launch()
+    
+    # Keep the script running
+    while True:
+        time.sleep(1)
