@@ -43,6 +43,7 @@ task_queue = Queue()
 queue_lock = Lock()
 current_task_event = Event()
 
+
 def generate_mask(image):
     inputs = processor(images=image, return_tensors="pt")
     outputs = model(**inputs)
@@ -237,95 +238,99 @@ example_garments = [
 ]
 
 css = """
-    body, .gradio-container {
-        background-color: #1a1a1a;
-        color: #ffffff;
-    }
-    .header {
-        background-color: #2c2c2c;
-        padding: 20px;
-        border-radius: 10px;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-    .title {
-        font-size: 36px;
-        font-weight: bold;
-        color: #ffffff;
-        margin-bottom: 10px;
-    }
-    .subtitle {
-        font-size: 18px;
-        color: #b3b3b3;
-    }
-    .example-garments img {
-        border-radius: 10px;
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-    .example-garments img:hover {
-        transform: scale(1.05);
-        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.3);
-    }
-    .try-on-button {
-        background-color: #4CAF50;
-        color: white;
-        padding: 12px 24px;
-        border: none;
-        border-radius: 5px;
-        font-size: 18px;
-        cursor: pointer;
-        transition: background-color 0.3s ease;
-    }
-    .try-on-button:hover {
-        background-color: #45a049;
-    }
-    .queue-info {
-        background-color: #2c2c2c;
-        border: 1px solid #3a3a3a;
-        border-radius: 5px;
-        padding: 15px;
-        margin-top: 15px;
-        font-size: 16px;
-        text-align: center;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-    .error-message {
-        background-color: #ff3860;
-        border: 1px solid #ff1443;
-        border-radius: 5px;
-        padding: 15px;
-        margin-top: 15px;
-        font-size: 16px;
-        text-align: center;
-        color: #ffffff;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-    .result-links a {
-        color: #3273dc;
-        text-decoration: none;
-        margin: 0 10px;
-        transition: color 0.3s ease;
-    }
-    .result-links a:hover {
-        color: #2366d1;
-        text-decoration: underline;
-    }
-    .loading {
-        display: inline-block;
-        width: 30px;
-        height: 30px;
-        border: 3px solid rgba(255,255,255,.3);
-        border-radius: 50%;
-        border-top-color: #ffffff;
-        animation: spin 1s ease-in-out infinite;
-        -webkit-animation: spin 1s ease-in-out infinite;
-    }
-    @keyframes spin {
-        to { -webkit-transform: rotate(360deg); }
-    }
-    @-webkit-keyframes spin {
-        to { -webkit-transform: rotate(360deg); }
-    }
+.header {
+    text-align: center;
+    max-width: 700px;
+    margin: 0 auto;
+    padding-top: 20px;
+}
+.title {
+    font-size: 40px;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 10px;
+}
+.subtitle {
+    font-size: 18px;
+    color: #34495e;
+}
+.example-garments {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-around;
+}
+.example-garments img {
+    max-width: 150px;
+    margin: 10px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease;
+}
+.example-garments img:hover {
+    transform: scale(1.05);
+}
+.try-on-button {
+    background-color: #3498db;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    font-size: 18px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+.try-on-button:hover {
+    background-color: #2980b9;
+}
+.result-links {
+    margin-top: 20px;
+    text-align: center;
+}
+.result-links a {
+    color: #3498db;
+    text-decoration: none;
+    margin: 0 10px;
+}
+.result-links a:hover {
+    text-decoration: underline;
+}
+.loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255,255,255,.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+    -webkit-animation: spin 1s ease-in-out infinite;
+}
+@keyframes spin {
+    to { -webkit-transform: rotate(360deg); }
+}
+@-webkit-keyframes spin {
+    to { -webkit-transform: rotate(360deg); }
+}
+
+.queue-info {
+    background-color: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 10px;
+    margin-top: 10px;
+    font-size: 16px;
+    text-align: center;
+}
+
+.error-message {
+    background-color: #ffebee;
+    border: 1px solid #ffcdd2;
+    border-radius: 5px;
+    padding: 10px;
+    margin-top: 10px;
+    font-size: 16px;
+    text-align: center;
+    color: #b71c1c;
+}
 """
 
 def process_queue():
@@ -371,90 +376,99 @@ with gr.Blocks(css=css) as demo:
     masked_output = gr.Image(label="Masked Image", visible=False)
     try_on_output = gr.Image(label="Virtual Try-On Result", visible=False)
     image_link = gr.HTML(visible=True, elem_classes="result-links")
-    error_output = gr.HTML(visible(False), elem_classes="error-message")
+    error_output = gr.HTML(visible=False, elem_classes="error-message")
 
     def select_example_garment(evt: gr.SelectData):
         return example_garments[evt.index]
 
     example_garment_gallery.select(select_example_garment, None, clothes_input)
 
-def process_virtual_try_on(clothes_image, person_image):
-    if clothes_image is None or person_image is None:
-        return {
-            loading_indicator: gr.update(visible=False),
-            queue_info: gr.update(visible=False),
+    def process_virtual_try_on(clothes_image, person_image):
+        if clothes_image is None or person_image is None:
+            return {
+                loading_indicator: gr.update(visible=False),
+                queue_info: gr.update(visible=False),
+                masked_output: gr.update(visible=False),
+                try_on_output: gr.update(visible=False),
+                error_output: gr.update(value="<p>Please upload both a garment image and a person image.</p>", visible=True),
+                image_link: gr.update(visible=False)
+            }
+
+        # Show loading indicator and queue info
+        yield {
+            loading_indicator: gr.update(visible=True),
+            queue_info: gr.update(value="<p>Your request is being processed. Please wait...</p>", visible=True),
             masked_output: gr.update(visible=False),
             try_on_output: gr.update(visible=False),
-            error_output: gr.update(value="<p>Please upload both a garment image and a person image.</p>", visible=True),
+            error_output: gr.update(visible=False),
             image_link: gr.update(visible=False)
         }
 
-    # Show loading indicator and queue info
-    yield {
-        loading_indicator: gr.update(visible=True),
-        queue_info: gr.update(value="<p>Your request is being processed. Please wait...</p>", visible=True),
-        masked_output: gr.update(visible=False),
-        try_on_output: gr.update(visible=False),
-        error_output: gr.update(visible=False),
-        image_link: gr.update(visible=False)
-    }
+        def result_callback(result):
+            nonlocal generation_done, generation_result
+            generation_done = True
+            generation_result = result
 
-    def result_callback(result):
-        nonlocal generation_done, generation_result
-        generation_done = True
-        generation_result = result
+        with queue_lock:
+            current_position = task_queue.qsize()
+            task_queue.put((clothes_image, person_image, result_callback))
 
-    with queue_lock:
-        current_position = task_queue.qsize()
-        task_queue.put((clothes_image, person_image, result_callback))
+        generation_done = False
+        generation_result = None
 
-    generation_done = False
-    generation_result = None
-
-    while not generation_done:
-        if current_task_event.is_set():
-            yield {
-                queue_info: gr.update(value="<p>Your request is being processed. This may take a few minutes. Please wait...</p>", visible=True)
-            }
-        else:
-            current_position = max(0, current_position - 1)
-            if current_position > 0:
+        while not generation_done:
+            if current_task_event.is_set():
                 yield {
-                    queue_info: gr.update(value=f"<p>Your request is in queue. Current position: {current_position}</p><p>Estimated wait time: {current_position * 2} minutes</p>", visible=True)
+                    queue_info: gr.update(value="<p>Your request is being processed. This may take a few minutes. Please wait...</p>", visible=True)
                 }
             else:
-                yield {
-                    queue_info: gr.update(value="<p>Your request is next in line. Processing will begin shortly...</p>", visible=True)
-                }
-        time.sleep(5)
+                current_position = max(0, current_position - 1)
+                if current_position > 0:
+                    yield {
+                        queue_info: gr.update(value=f"<p>Your request is in queue. Current position: {current_position}</p><p>Estimated wait time: {current_position * 2} minutes</p>", visible=True)
+                    }
+                else:
+                    yield {
+                        queue_info: gr.update(value="<p>Your request is next in line. Processing will begin shortly...</p>", visible=True)
+                    }
+            time.sleep(5)
 
-    if generation_result is None:
-        yield {
-            loading_indicator: gr.update(visible=False),
-            queue_info: gr.update(visible=False),
-            masked_output: gr.update(visible=False),
-            try_on_output: gr.update(visible=False),
-            image_link: gr.update(visible=False),
-            error_output: gr.update(value="<p>An unexpected error occurred. Please try again later.</p>", visible=True)
-        }
-    elif generation_result['success']:
-        generated_image_path = os.environ['GENERATED_IMAGE_PATH']
-        masked_image_path = os.environ['MASKED_IMAGE_PATH']
-        gradio_url = os.environ['GRADIO_PUBLIC_URL']
-
-        if gradio_url and generated_image_path and masked_image_path:
-            output_image_link = f"{gradio_url}/file={generated_image_path}"
-            masked_image_link = f"{gradio_url}/file={masked_image_path}"
-            link_html = f'<a href="{output_image_link}" target="_blank">View generated image</a> | <a href="{masked_image_link}" target="_blank">View masked image</a>'
-
+        if generation_result is None:
             yield {
                 loading_indicator: gr.update(visible=False),
                 queue_info: gr.update(visible=False),
-                masked_output: gr.update(value=masked_image_path, visible=True),
-                try_on_output: gr.update(value=generated_image_path, visible=True),
-                image_link: gr.update(value=link_html, visible=True),
-                error_output: gr.update(visible=False)
+                masked_output: gr.update(visible=False),
+                try_on_output: gr.update(visible=False),
+                image_link: gr.update(visible=False),
+                error_output: gr.update(value="<p>An unexpected error occurred. Please try again later.</p>", visible=True)
             }
+        elif generation_result['success']:
+            generated_image_path = os.environ['GENERATED_IMAGE_PATH']
+            masked_image_path = os.environ['MASKED_IMAGE_PATH']
+            gradio_url = os.environ['GRADIO_PUBLIC_URL']
+
+            if gradio_url and generated_image_path and masked_image_path:
+                output_image_link = f"{gradio_url}/file={generated_image_path}"
+                masked_image_link = f"{gradio_url}/file={masked_image_path}"
+                link_html = f'<a href="{output_image_link}" target="_blank">View generated image</a> | <a href="{masked_image_link}" target="_blank">View masked image</a>'
+
+                yield {
+                    loading_indicator: gr.update(visible=False),
+                    queue_info: gr.update(visible=False),
+                    masked_output: gr.update(value=masked_image_path, visible=True),
+                    try_on_output: gr.update(value=generated_image_path, visible=True),
+                    image_link: gr.update(value=link_html, visible=True),
+                    error_output: gr.update(visible=False)
+                }
+            else:
+                yield {
+                    loading_indicator: gr.update(visible=False),
+                    queue_info: gr.update(visible=False),
+                    masked_output: gr.update(visible=False),
+                    try_on_output: gr.update(visible=False),
+                    image_link: gr.update(visible=False),
+                    error_output: gr.update(value="<p>Unable to generate public links. Please try again later.</p>", visible=True)
+                }
         else:
             yield {
                 loading_indicator: gr.update(visible=False),
@@ -462,18 +476,8 @@ def process_virtual_try_on(clothes_image, person_image):
                 masked_output: gr.update(visible=False),
                 try_on_output: gr.update(visible=False),
                 image_link: gr.update(visible=False),
-                error_output: gr.update(value="<p>Unable to generate public links. Please try again later.</p>", visible=True)
+                error_output: gr.update(value=f"<p>Error: {generation_result['error']}</p><p>Please try again later.</p>", visible=True)
             }
-    else:
-        yield {
-            loading_indicator: gr.update(visible=False),
-            queue_info: gr.update(visible=False),
-            masked_output: gr.update(visible=False),
-            try_on_output: gr.update(visible=False),
-            image_link: gr.update(visible=False),
-            error_output: gr.update(value=f"<p>Error: {generation_result['error']}</p><p>Please try again later.</p>", visible=True)
-        }
-
 
     try_on_button.click(
         process_virtual_try_on,
