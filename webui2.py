@@ -87,7 +87,6 @@ def virtual_try_on(clothes_image, person_image):
         person_image = HWC3(person_image)
         inpaint_mask = HWC3(inpaint_mask)[:, :, 0]
 
-        # Use the original resize_image function from modules.util
         clothes_image = resize_image(clothes_image, target_size[0], target_size[1])
         person_image = resize_image(person_image, target_size[0], target_size[1])
         inpaint_mask = resize_image(inpaint_mask, target_size[0], target_size[1])
@@ -97,17 +96,15 @@ def virtual_try_on(clothes_image, person_image):
         plt.imshow(inpaint_mask, cmap='gray')
         plt.axis('off')
         
-        # Save the plot to a byte buffer
         buf = io.BytesIO()
         plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
         buf.seek(0)
         
-        # Save the mask image
         masked_image_path = os.path.join(modules.config.path_outputs, f"masked_image_{int(time.time())}.png")
         with open(masked_image_path, 'wb') as f:
             f.write(buf.getvalue())
         
-        plt.close()  # Close the plot to free up memory
+        plt.close()
 
         os.environ['MASKED_IMAGE_PATH'] = masked_image_path
 
@@ -340,7 +337,6 @@ def process_queue():
         result_callback(result)
         task_queue.task_done()
 
-# Start the queue processing thread
 import threading
 queue_thread = threading.Thread(target=process_queue, daemon=True)
 queue_thread.start()
@@ -389,7 +385,6 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                 image_link: gr.update(visible=False)
             }
 
-        # Check if there's already a task in progress
         if current_task_event.is_set():
             return {
                 loading_indicator: gr.update(visible=True),
@@ -400,7 +395,6 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                 image_link: gr.update(visible=False)
             }
 
-        # Show loading indicator and queue info
         yield {
             loading_indicator: gr.update(visible=True),
             queue_info: gr.update(value="<p>Preparing your virtual try-on experience...</p>", visible=True),
@@ -410,6 +404,9 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
             image_link: gr.update(visible=False)
         }
 
+        generation_done = False
+        generation_result = None
+
         def result_callback(result):
             nonlocal generation_done, generation_result
             generation_done = True
@@ -418,9 +415,6 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
         with queue_lock:
             current_position = task_queue.qsize()
             task_queue.put((clothes_image, person_image, result_callback))
-
-        generation_done = False
-        generation_result = None
 
         while not generation_done:
             if current_task_event.is_set():
@@ -449,8 +443,8 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                 error_output: gr.update(value="<p>Oops! An unexpected error occurred. Our team has been notified. Please try again later.</p>", visible=True)
             }
         elif generation_result['success']:
-            generated_image_path = os.environ['GENERATED_IMAGE_PATH']
-            masked_image_path = os.environ['MASKED_IMAGE_PATH']
+            generated_image_path = generation_result['image_path']
+            masked_image_path = generation_result['masked_image_path']
             gradio_url = os.environ['GRADIO_PUBLIC_URL']
 
             if gradio_url and generated_image_path and masked_image_path:
@@ -472,16 +466,16 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                     queue_info: gr.update(visible=False),
                     masked_output: gr.update(visible=False),
                     try_on_output: gr.update(visible=False),
-                    image_link: gr.update(visible(False),
+                    image_link: gr.update(visible=False),
                     error_output: gr.update(value="<p>We encountered an issue while generating your try-on links. Our team is looking into it. Please try again later.</p>", visible=True)
                 }
         else:
             yield {
-                loading_indicator: gr.update(visible(False),
-                queue_info: gr.update(visible(False),
-                masked_output: gr.update(visible(False),
-                try_on_output: gr.update(visible(False),
-                image_link: gr.update(visible(False),
+                loading_indicator: gr.update(visible=False),
+                queue_info: gr.update(visible=False),
+                masked_output: gr.update(visible=False),
+                try_on_output: gr.update(visible=False),
+                image_link: gr.update(visible=False),
                 error_output: gr.update(value=f"<p>We hit a snag: {generation_result['error']}</p><p>Don't worry, our team is on it. Please try again in a few moments.</p>", visible=True)
             }
 
