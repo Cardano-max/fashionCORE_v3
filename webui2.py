@@ -206,6 +206,23 @@ example_garments = [
     "images/6.png",
     "images/7.png",
     "images/8.png",
+    "images/9.png",
+    "images/10.png",
+    "images/11.png",
+    "images/12.jpeg",
+    "images/13.jpeg",
+    "images/14.jpeg",
+    "images/15.jpeg",
+    "images/16.jpeg",
+    "images/17.jpeg",
+    "images/18.jpeg",
+    "images/19.jpeg",
+    "images/20.jpeg",
+    "images/21.jpeg",
+    "images/22.jpeg",
+    "images/23.jpeg",
+    "images/24.jpeg",
+    "images/25.png",
 ]
 
 css = """
