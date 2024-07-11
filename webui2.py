@@ -22,6 +22,16 @@ from modules.flags import Performance
 from queue import Queue
 from threading import Lock, Event, Thread
 
+import base64
+
+def image_to_base64(img_path):
+    with open(img_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode('utf-8')
+
+base64_co = image_to_base64("images/co.jpeg")
+base64_inc = image_to_base64("images/inc.jpg")
+
+
 # Set up environment variables for sharing data
 os.environ['GRADIO_PUBLIC_URL'] = ''
 os.environ['GENERATED_IMAGE_PATH'] = ''
@@ -383,20 +393,19 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
             gr.Markdown("### Upload Your Photo")
             person_input = gr.Image(label="Your Photo", source="upload", type="numpy")
 
-    gr.HTML(
-        """
+    gr.HTML(f"""
         <div class="instruction-images">
             <div class="instruction-image">
-                <img src="images/co.jpeg" alt="Correct pose" onerror="this.onerror=null;this.src='images/co.jpg';">
+                <img src="data:image/jpeg;base64,{base64_co}" alt="Correct pose">
                 <p class="instruction-caption">✅ Correct: Neutral pose, facing forward</p>
             </div>
             <div class="instruction-image">
-                <img src="images/inc.jpg" alt="Incorrect pose" onerror="this.onerror=null;this.src='images/inc.jpg';">
+                <img src="data:image/jpeg;base64,{base64_inc}" alt="Incorrect pose">
                 <p class="instruction-caption">❌ Incorrect: Angled or complex pose</p>
             </div>
         </div>
-        """
-    )
+    """)
+
 
     try_on_button = gr.Button("Try It On!", elem_classes="try-on-button")
     loading_indicator = gr.HTML('<div class="loading"></div>', visible=False)
