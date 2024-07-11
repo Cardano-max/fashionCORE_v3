@@ -113,7 +113,7 @@ def virtual_try_on(clothes_image, person_image):
             modules.config.default_prompt_negative,
             False,
             modules.config.default_styles,
-            modules.config.default_performance,
+            45,
             modules.config.default_aspect_ratio,
             1,
             modules.config.default_output_format,
