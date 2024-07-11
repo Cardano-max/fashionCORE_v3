@@ -237,6 +237,7 @@ example_garments = [
     "images/28.png",
 ]
 
+
 css = """
     body, .gradio-container {
         background-color: #1a1a1a;
@@ -346,7 +347,7 @@ import threading
 queue_thread = threading.Thread(target=process_queue, daemon=True)
 queue_thread.start()
 
-with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
+with gr.Blocks(css=css) as demo:
     gr.HTML(
         """
         <div class="header">
@@ -390,21 +391,10 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                 image_link: gr.update(visible=False)
             }
 
-        # Check if there's already a task in progress
-        if current_task_event.is_set():
-            return {
-                loading_indicator: gr.update(visible=True),
-                queue_info: gr.update(value="<p>The system is currently processing another request. Your try-on might take longer than usual. Please hold tight!</p>", visible=True),
-                masked_output: gr.update(visible=False),
-                try_on_output: gr.update(visible=False),
-                error_output: gr.update(visible=False),
-                image_link: gr.update(visible=False)
-            }
-
         # Show loading indicator and queue info
         yield {
             loading_indicator: gr.update(visible=True),
-            queue_info: gr.update(value="<p>Preparing your virtual try-on experience...</p>", visible=True),
+            queue_info: gr.update(value="<p>Your request is being processed. Please wait...</p>", visible=True),
             masked_output: gr.update(visible=False),
             try_on_output: gr.update(visible=False),
             error_output: gr.update(visible=False),
@@ -426,17 +416,17 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
         while not generation_done:
             if current_task_event.is_set():
                 yield {
-                    queue_info: gr.update(value="<p>Your request is being processed. This may take a few minutes. We appreciate your patience!</p>", visible=True)
+                    queue_info: gr.update(value="<p>Your request is being processed. This may take a few minutes. Please wait...</p>", visible=True)
                 }
             else:
                 current_position = max(0, current_position - 1)
                 if current_position > 0:
                     yield {
-                        queue_info: gr.update(value=f"<p>Your request is in queue. Current position: {current_position}</p><p>Estimated wait time: {current_position * 2} minutes</p><p>We're working hard to get to your request. Thank you for your patience!</p>", visible=True)
+                        queue_info: gr.update(value=f"<p>Your request is in queue. Current position: {current_position}</p><p>Estimated wait time: {current_position * 2} minutes</p>", visible=True)
                     }
                 else:
                     yield {
-                        queue_info: gr.update(value="<p>Exciting news! Your request is next in line. Get ready to see your virtual try-on!</p>", visible=True)
+                        queue_info: gr.update(value="<p>Your request is next in line. Processing will begin shortly...</p>", visible=True)
                     }
             time.sleep(5)
 
@@ -447,7 +437,7 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                 masked_output: gr.update(visible=False),
                 try_on_output: gr.update(visible=False),
                 image_link: gr.update(visible=False),
-                error_output: gr.update(value="<p>Oops! An unexpected error occurred. Our team has been notified. Please try again later.</p>", visible=True)
+                error_output: gr.update(value="<p>An unexpected error occurred. Please try again later.</p>", visible=True)
             }
         elif generation_result['success']:
             generated_image_path = os.environ['GENERATED_IMAGE_PATH']
@@ -457,11 +447,11 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
             if gradio_url and generated_image_path and masked_image_path:
                 output_image_link = f"{gradio_url}/file={generated_image_path}"
                 masked_image_link = f"{gradio_url}/file={masked_image_path}"
-                link_html = f'<a href="{output_image_link}" target="_blank">View Your Try-On Result</a> | <a href="{masked_image_link}" target="_blank">View Masked Image</a>'
+                link_html = f'<a href="{output_image_link}" target="_blank">View generated image</a> | <a href="{masked_image_link}" target="_blank">View masked image</a>'
 
                 yield {
                     loading_indicator: gr.update(visible=False),
-                    queue_info: gr.update(value="<p>Your virtual try-on is complete! Check out the results below.</p>", visible=True),
+                    queue_info: gr.update(visible=False),
                     masked_output: gr.update(value=masked_image_path, visible=True),
                     try_on_output: gr.update(value=generated_image_path, visible=True),
                     image_link: gr.update(value=link_html, visible=True),
@@ -474,7 +464,7 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                     masked_output: gr.update(visible=False),
                     try_on_output: gr.update(visible=False),
                     image_link: gr.update(visible=False),
-                    error_output: gr.update(value="<p>We encountered an issue while generating your try-on links. Our team is looking into it. Please try again later.</p>", visible=True)
+                    error_output: gr.update(value="<p>Unable to generate public links. Please try again later.</p>", visible=True)
                 }
         else:
             yield {
@@ -483,7 +473,7 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                 masked_output: gr.update(visible=False),
                 try_on_output: gr.update(visible=False),
                 image_link: gr.update(visible=False),
-                error_output: gr.update(value=f"<p>We hit a snag: {generation_result['error']}</p><p>Don't worry, our team is on it. Please try again in a few moments.</p>", visible=True)
+                error_output: gr.update(value=f"<p>Error: {generation_result['error']}</p><p>Please try again later.</p>", visible=True)
             }
 
     try_on_button.click(
@@ -495,11 +485,11 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
     gr.Markdown(
         """
         ## How It Works
-        1. Choose a garment from our curated collection or upload your own.
-        2. Upload a photo of yourself in a neutral pose.
-        3. Click "Try It On!" and watch the magic unfold!
+        1. Choose a garment from our examples or upload your own.
+        2. Upload a photo of yourself.
+        3. Click "Try It On!" to see the magic happen!
 
-        Experience the future of online shopping with ArbiTryOn - where innovation meets style!
+        Experience the future of online shopping with ArbiTryOn - where technology meets style!
         """
     )
 
