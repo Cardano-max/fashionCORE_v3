@@ -20,7 +20,7 @@ import cv2
 from transformers import SegformerImageProcessor, AutoModelForSemanticSegmentation
 from modules.flags import Performance
 from queue import Queue
-from threading import Lock
+from threading import Lock, Event
 
 # Set up environment variables for sharing data
 os.environ['GRADIO_PUBLIC_URL'] = ''
@@ -41,6 +41,7 @@ model = AutoModelForSemanticSegmentation.from_pretrained("sayeed99/segformer_b3_
 # Initialize queue and lock
 task_queue = Queue()
 queue_lock = Lock()
+current_task_event = Event()
 
 
 def generate_mask(image):
@@ -309,6 +310,27 @@ css = """
 @-webkit-keyframes spin {
     to { -webkit-transform: rotate(360deg); }
 }
+
+.queue-info {
+    background-color: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 10px;
+    margin-top: 10px;
+    font-size: 16px;
+    text-align: center;
+}
+
+.error-message {
+    background-color: #ffebee;
+    border: 1px solid #ffcdd2;
+    border-radius: 5px;
+    padding: 10px;
+    margin-top: 10px;
+    font-size: 16px;
+    text-align: center;
+    color: #b71c1c;
+}
 """
 
 def process_queue():
@@ -317,7 +339,9 @@ def process_queue():
         if task is None:
             break
         clothes_image, person_image, result_callback = task
+        current_task_event.set()
         result = virtual_try_on(clothes_image, person_image)
+        current_task_event.clear()
         result_callback(result)
         task_queue.task_done()
 
@@ -348,11 +372,11 @@ with gr.Blocks(css=css) as demo:
 
     try_on_button = gr.Button("Try It On!", elem_classes="try-on-button")
     loading_indicator = gr.HTML('<div class="loading"></div>', visible=False)
-    queue_info = gr.HTML(visible=False)
+    queue_info = gr.HTML(visible=False, elem_classes="queue-info")
     masked_output = gr.Image(label="Masked Image", visible=False)
     try_on_output = gr.Image(label="Virtual Try-On Result", visible=False)
     image_link = gr.HTML(visible=True, elem_classes="result-links")
-    error_output = gr.Textbox(label="Error", visible=False)
+    error_output = gr.HTML(visible=False, elem_classes="error-message")
 
     def select_example_garment(evt: gr.SelectData):
         return example_garments[evt.index]
@@ -366,14 +390,14 @@ with gr.Blocks(css=css) as demo:
                 queue_info: gr.update(visible=False),
                 masked_output: gr.update(visible=False),
                 try_on_output: gr.update(visible=False),
-                error_output: gr.update(value="Please upload both a garment image and a person image.", visible=True),
+                error_output: gr.update(value="<p>Please upload both a garment image and a person image.</p>", visible=True),
                 image_link: gr.update(visible=False)
             }
 
         # Show loading indicator and queue info
         yield {
             loading_indicator: gr.update(visible=True),
-            queue_info: gr.update(value="Your request is being processed. Please wait...", visible=True),
+            queue_info: gr.update(value="<p>Your request is being processed. Please wait...</p>", visible=True),
             masked_output: gr.update(visible=False),
             try_on_output: gr.update(visible=False),
             error_output: gr.update(visible=False),
@@ -381,7 +405,7 @@ with gr.Blocks(css=css) as demo:
         }
 
         def result_callback(result):
-            nonlocal generation_done
+            nonlocal generation_done, generation_result
             generation_done = True
             generation_result = result
 
@@ -393,18 +417,32 @@ with gr.Blocks(css=css) as demo:
         generation_result = None
 
         while not generation_done:
-            current_position = max(0, current_position - 1)
-            if current_position > 0:
+            if current_task_event.is_set():
                 yield {
-                    queue_info: gr.update(value=f"Your request is in queue. Current position: {current_position}", visible=True)
+                    queue_info: gr.update(value="<p>Your request is being processed. This may take a few minutes. Please wait...</p>", visible=True)
                 }
             else:
-                yield {
-                    queue_info: gr.update(value="Processing your request...", visible=True)
-                }
-            time.sleep(1)
+                current_position = max(0, current_position - 1)
+                if current_position > 0:
+                    yield {
+                        queue_info: gr.update(value=f"<p>Your request is in queue. Current position: {current_position}</p><p>Estimated wait time: {current_position * 2} minutes</p>", visible=True)
+                    }
+                else:
+                    yield {
+                        queue_info: gr.update(value="<p>Your request is next in line. Processing will begin shortly...</p>", visible=True)
+                    }
+            time.sleep(5)
 
-        if generation_result['success']:
+        if generation_result is None:
+            yield {
+                loading_indicator: gr.update(visible=False),
+                queue_info: gr.update(visible=False),
+                masked_output: gr.update(visible=False),
+                try_on_output: gr.update(visible=False),
+                image_link: gr.update(visible=False),
+                error_output: gr.update(value="<p>An unexpected error occurred. Please try again later.</p>", visible=True)
+            }
+        elif generation_result['success']:
             generated_image_path = os.environ['GENERATED_IMAGE_PATH']
             masked_image_path = os.environ['MASKED_IMAGE_PATH']
             gradio_url = os.environ['GRADIO_PUBLIC_URL']
@@ -428,8 +466,8 @@ with gr.Blocks(css=css) as demo:
                     queue_info: gr.update(visible=False),
                     masked_output: gr.update(visible=False),
                     try_on_output: gr.update(visible=False),
-                    image_link: gr.update(value=f"Unable to generate public links. Local file paths: Generated: {generated_image_path}, Masked: {masked_image_path}", visible=True),
-                    error_output: gr.update(visible=False)
+                    image_link: gr.update(visible=False),
+                    error_output: gr.update(value="<p>Unable to generate public links. Please try again later.</p>", visible=True)
                 }
         else:
             yield {
@@ -438,7 +476,7 @@ with gr.Blocks(css=css) as demo:
                 masked_output: gr.update(visible=False),
                 try_on_output: gr.update(visible=False),
                 image_link: gr.update(visible=False),
-                error_output: gr.update(value=generation_result['error'], visible=True)
+                error_output: gr.update(value=f"<p>Error: {generation_result['error']}</p><p>Please try again later.</p>", visible=True)
             }
 
     try_on_button.click(
