@@ -20,7 +20,7 @@ import cv2
 from transformers import SegformerImageProcessor, AutoModelForSemanticSegmentation
 from modules.flags import Performance
 from queue import Queue
-from threading import Lock, Event
+from threading import Lock, Event, Thread
 
 # Set up environment variables for sharing data
 os.environ['GRADIO_PUBLIC_URL'] = ''
@@ -38,10 +38,11 @@ sys.excepthook = custom_exception_handler
 processor = SegformerImageProcessor.from_pretrained("sayeed99/segformer_b3_clothes")
 model = AutoModelForSemanticSegmentation.from_pretrained("sayeed99/segformer_b3_clothes")
 
-# Initialize queue and lock
+# Initialize queue and locks
 task_queue = Queue()
 queue_lock = Lock()
 current_task_event = Event()
+queue_update_event = Event()
 
 def generate_mask(image):
     inputs = processor(images=image, return_tensors="pt")
@@ -332,13 +333,15 @@ def process_queue():
             break
         clothes_image, person_image, result_callback = task
         current_task_event.set()
+        queue_update_event.set()
         result = virtual_try_on(clothes_image, person_image)
         current_task_event.clear()
         result_callback(result)
         task_queue.task_done()
+        queue_update_event.set()
 
-import threading
-queue_thread = threading.Thread(target=process_queue, daemon=True)
+# Start the queue processing thread
+queue_thread = Thread(target=process_queue, daemon=True)
 queue_thread.start()
 
 with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
@@ -363,7 +366,7 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
 
     try_on_button = gr.Button("Try It On!", elem_classes="try-on-button")
     loading_indicator = gr.HTML('<div class="loading"></div>', visible=False)
-    queue_info = gr.HTML(visible=False, elem_classes="queue-info")
+    status_info = gr.HTML(visible=False, elem_classes="queue-info")
     masked_output = gr.Image(label="Masked Image", visible=False)
     try_on_output = gr.Image(label="Virtual Try-On Result", visible=False)
     image_link = gr.HTML(visible=True, elem_classes="result-links")
@@ -376,36 +379,26 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
 
     def process_virtual_try_on(clothes_image, person_image):
         if clothes_image is None or person_image is None:
-            return {
+            yield {
                 loading_indicator: gr.update(visible=False),
-                queue_info: gr.update(visible=False),
+                status_info: gr.update(visible=False),
                 masked_output: gr.update(visible=False),
                 try_on_output: gr.update(visible=False),
                 error_output: gr.update(value="<p>Please upload both a garment image and a person image.</p>", visible=True),
                 image_link: gr.update(visible=False)
             }
+            return
 
+        # Check if there's already a task in progress
         if current_task_event.is_set():
-            return {
+            yield {
                 loading_indicator: gr.update(visible=True),
-                queue_info: gr.update(value="<p>The system is currently processing another request. Your try-on might take longer than usual. Please hold tight!</p>", visible=True),
+                status_info: gr.update(value="<p>The system is currently processing another request. Your try-on will be queued and might take longer than usual. Please hold tight!</p>", visible=True),
                 masked_output: gr.update(visible=False),
                 try_on_output: gr.update(visible=False),
                 error_output: gr.update(visible=False),
                 image_link: gr.update(visible=False)
             }
-
-        yield {
-            loading_indicator: gr.update(visible=True),
-            queue_info: gr.update(value="<p>Preparing your virtual try-on experience...</p>", visible=True),
-            masked_output: gr.update(visible=False),
-            try_on_output: gr.update(visible=False),
-            error_output: gr.update(visible=False),
-            image_link: gr.update(visible=False)
-        }
-
-        generation_done = False
-        generation_result = None
 
         def result_callback(result):
             nonlocal generation_done, generation_result
@@ -416,35 +409,54 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
             current_position = task_queue.qsize()
             task_queue.put((clothes_image, person_image, result_callback))
 
+        generation_done = False
+        generation_result = None
+
         while not generation_done:
-            if current_task_event.is_set():
+            if current_task_event.is_set() and current_position == 0:
                 yield {
-                    queue_info: gr.update(value="<p>Your request is being processed. This may take a few minutes. We appreciate your patience!</p>", visible=True)
+                    loading_indicator: gr.update(visible=True),
+                    status_info: gr.update(value="<p>Your request is being processed. This may take a few minutes. We appreciate your patience!</p>", visible=True),
+                    masked_output: gr.update(visible=False),
+                    try_on_output: gr.update(visible=False),
+                    error_output: gr.update(visible=False),
+                    image_link: gr.update(visible=False)
+                }
+            elif current_position > 0:
+                yield {
+                    loading_indicator: gr.update(visible=True),
+                    status_info: gr.update(value=f"<p>Your request is in queue. Current position: {current_position}</p><p>Estimated wait time: {current_position * 2} minutes</p><p>We're working hard to get to your request. Thank you for your patience!</p>", visible=True),
+                    masked_output: gr.update(visible=False),
+                    try_on_output: gr.update(visible=False),
+                    error_output: gr.update(visible=False),
+                    image_link: gr.update(visible=False)
                 }
             else:
-                current_position = max(0, current_position - 1)
-                if current_position > 0:
-                    yield {
-                        queue_info: gr.update(value=f"<p>Your request is in queue. Current position: {current_position}</p><p>Estimated wait time: {current_position * 2} minutes</p><p>We're working hard to get to your request. Thank you for your patience!</p>", visible=True)
-                    }
-                else:
-                    yield {
-                        queue_info: gr.update(value="<p>Exciting news! Your request is next in line. Get ready to see your virtual try-on!</p>", visible=True)
-                    }
-            time.sleep(5)
+                yield {
+                    loading_indicator: gr.update(visible=True),
+                    status_info: gr.update(value="<p>Exciting news! Your request is next in line. Get ready to see your virtual try-on!</p>", visible=True),
+                    masked_output: gr.update(visible=False),
+                    try_on_output: gr.update(visible=False),
+                    error_output: gr.update(visible=False),
+                    image_link: gr.update(visible=False)
+                }
+            
+            queue_update_event.wait(timeout=5)
+            queue_update_event.clear()
+            current_position = max(0, task_queue.qsize() - 1)
 
         if generation_result is None:
             yield {
                 loading_indicator: gr.update(visible=False),
-                queue_info: gr.update(visible=False),
+                status_info: gr.update(visible=False),
                 masked_output: gr.update(visible=False),
                 try_on_output: gr.update(visible=False),
                 image_link: gr.update(visible=False),
                 error_output: gr.update(value="<p>Oops! An unexpected error occurred. Our team has been notified. Please try again later.</p>", visible=True)
             }
         elif generation_result['success']:
-            generated_image_path = generation_result['image_path']
-            masked_image_path = generation_result['masked_image_path']
+            generated_image_path = os.environ['GENERATED_IMAGE_PATH']
+            masked_image_path = os.environ['MASKED_IMAGE_PATH']
             gradio_url = os.environ['GRADIO_PUBLIC_URL']
 
             if gradio_url and generated_image_path and masked_image_path:
@@ -454,7 +466,7 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
 
                 yield {
                     loading_indicator: gr.update(visible=False),
-                    queue_info: gr.update(value="<p>Your virtual try-on is complete! Check out the results below.</p>", visible=True),
+                    status_info: gr.update(value="<p>Your virtual try-on is complete! Check out the results below.</p>", visible=True),
                     masked_output: gr.update(value=masked_image_path, visible=True),
                     try_on_output: gr.update(value=generated_image_path, visible=True),
                     image_link: gr.update(value=link_html, visible=True),
@@ -463,7 +475,7 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
             else:
                 yield {
                     loading_indicator: gr.update(visible=False),
-                    queue_info: gr.update(visible=False),
+                    status_info: gr.update(visible=False),
                     masked_output: gr.update(visible=False),
                     try_on_output: gr.update(visible=False),
                     image_link: gr.update(visible=False),
@@ -472,7 +484,7 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
         else:
             yield {
                 loading_indicator: gr.update(visible=False),
-                queue_info: gr.update(visible=False),
+                status_info: gr.update(visible=False),
                 masked_output: gr.update(visible=False),
                 try_on_output: gr.update(visible=False),
                 image_link: gr.update(visible=False),
@@ -482,7 +494,7 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
     try_on_button.click(
         process_virtual_try_on,
         inputs=[clothes_input, person_input],
-        outputs=[loading_indicator, queue_info, masked_output, try_on_output, image_link, error_output]
+        outputs=[loading_indicator, status_info, masked_output, try_on_output, image_link, error_output]
     )
 
     gr.Markdown(
