@@ -387,11 +387,11 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
         """
         <div class="instruction-images">
             <div class="instruction-image">
-                <img src="path_to_correct_pose_image.jpg" alt="Correct pose">
+                <img src="images/co.jpeg" alt="Correct pose">
                 <p class="instruction-caption">✅ Correct: Neutral pose, facing forward</p>
             </div>
             <div class="instruction-image">
-                <img src="path_to_incorrect_pose_image.jpg" alt="Incorrect pose">
+                <img src="images/inc.jpg" alt="Incorrect pose">
                 <p class="instruction-caption">❌ Incorrect: Angled or complex pose</p>
             </div>
         </div>
