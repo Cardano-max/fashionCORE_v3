@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 import io
 import cv2
 from transformers import SegformerImageProcessor, AutoModelForSemanticSegmentation
+from modules.flags import Performance  # Import the Performance class
 
 # Set up environment variables for sharing data
 os.environ['GRADIO_PUBLIC_URL'] = ''
