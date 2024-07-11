@@ -43,7 +43,6 @@ task_queue = Queue()
 queue_lock = Lock()
 current_task_event = Event()
 
-
 def generate_mask(image):
     inputs = processor(images=image, return_tensors="pt")
     outputs = model(**inputs)
@@ -445,9 +444,9 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                 loading_indicator: gr.update(visible=False),
                 queue_info: gr.update(visible=False),
                 masked_output: gr.update(visible=False),
-                try_on_output: gr.update(visible(False),
-                image_link: gr.update(visible(False),
-                error_output: gr.update(value="<p>Oops! An unexpected error occurred. Our team has been notified. Please try again later.</p>", visible(True)
+                try_on_output: gr.update(visible=False),
+                image_link: gr.update(visible=False),
+                error_output: gr.update(value="<p>Oops! An unexpected error occurred. Our team has been notified. Please try again later.</p>", visible=True)
             }
         elif generation_result['success']:
             generated_image_path = os.environ['GENERATED_IMAGE_PATH']
@@ -460,21 +459,21 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                 link_html = f'<a href="{output_image_link}" target="_blank">View Your Try-On Result</a> | <a href="{masked_image_link}" target="_blank">View Masked Image</a>'
 
                 yield {
-                    loading_indicator: gr.update(visible(False),
+                    loading_indicator: gr.update(visible=False),
                     queue_info: gr.update(value="<p>Your virtual try-on is complete! Check out the results below.</p>", visible=True),
                     masked_output: gr.update(value=masked_image_path, visible=True),
                     try_on_output: gr.update(value=generated_image_path, visible=True),
-                    image_link: gr.update(value=link_html, visible(True),
-                    error_output: gr.update(visible(False)
+                    image_link: gr.update(value=link_html, visible=True),
+                    error_output: gr.update(visible=False)
                 }
             else:
                 yield {
-                    loading_indicator: gr.update(visible(False),
-                    queue_info: gr.update(visible(False),
-                    masked_output: gr.update(visible(False),
-                    try_on_output: gr.update(visible(False),
+                    loading_indicator: gr.update(visible=False),
+                    queue_info: gr.update(visible=False),
+                    masked_output: gr.update(visible=False),
+                    try_on_output: gr.update(visible=False),
                     image_link: gr.update(visible(False),
-                    error_output: gr.update(value="<p>We encountered an issue while generating your try-on links. Our team is looking into it. Please try again later.</p>", visible(True)
+                    error_output: gr.update(value="<p>We encountered an issue while generating your try-on links. Our team is looking into it. Please try again later.</p>", visible=True)
                 }
         else:
             yield {
@@ -483,7 +482,7 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                 masked_output: gr.update(visible(False),
                 try_on_output: gr.update(visible(False),
                 image_link: gr.update(visible(False),
-                error_output: gr.update(value=f"<p>We hit a snag: {generation_result['error']}</p><p>Don't worry, our team is on it. Please try again in a few moments.</p>", visible(True)
+                error_output: gr.update(value=f"<p>We hit a snag: {generation_result['error']}</p><p>Don't worry, our team is on it. Please try again in a few moments.</p>", visible=True)
             }
 
     try_on_button.click(
