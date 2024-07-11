@@ -7,7 +7,6 @@ strong_variation = 'Vary (Strong)'
 upscale_15 = 'Upscale (1.5x)'
 upscale_2 = 'Upscale (2x)'
 upscale_fast = 'Upscale (Fast 2x)'
-from typing import Union
 
 uov_list = [
     disabled, subtle_variation, strong_variation, upscale_15, upscale_2, upscale_fast
@@ -126,11 +125,11 @@ class Performance(Enum):
     def list(cls) -> list:
         return list(map(lambda c: c.value, cls))
 
-    def steps(self) -> Union[int, None]:
-        return Steps[self.name].value if hasattr(Steps, self.name) else None
+    def steps(self) -> int | None:
+        return Steps[self.name].value if Steps[self.name] else None
 
-    def steps_uov(self) -> Union[int, None]:
-        return StepsUOV[self.name].value if hasattr(StepsUOV, self.name) else None
+    def steps_uov(self) -> int | None:
+        return StepsUOV[self.name].value if Steps[self.name] else None
 
 
 performance_selections = [
