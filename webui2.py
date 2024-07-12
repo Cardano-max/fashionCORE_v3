@@ -22,14 +22,9 @@ from modules.flags import Performance
 from queue import Queue
 from threading import Lock, Event, Thread
 import base64
-
-def image_to_base64(img_path):
-    with open(img_path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode('utf-8')
-
-base64_cor = image_to_base64("images/corre.jpg")
-base64_inc = image_to_base64("images/inc.jpg")
-
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 # Set up environment variables for sharing data
 os.environ['GRADIO_PUBLIC_URL'] = ''
@@ -52,6 +47,29 @@ task_queue = Queue()
 queue_lock = Lock()
 current_task_event = Event()
 queue_update_event = Event()
+
+# Function to send email (using Mailpit for demonstration)
+def send_feedback_email(rating, comment):
+    sender_email = "feedback@arbitryon.com"
+    receiver_email = "feedback@arbitryon.com"  # This would be your actual feedback collection email
+    
+    message = MIMEMultipart()
+    message["From"] = sender_email
+    message["To"] = receiver_email
+    message["Subject"] = f"ArbiTryOn Feedback - Rating: {rating}"
+
+    body = f"Rating: {rating}/5\nComment: {comment}"
+    message.attach(MIMEText(body, "plain"))
+
+    try:
+        with smtplib.SMTP("localhost", 1025) as server:  # Mailpit default settings
+            server.sendmail(sender_email, receiver_email, message.as_string())
+        print("Feedback email sent successfully")
+        return True
+    except Exception as e:
+        print(f"Failed to send feedback email: {str(e)}")
+        return False
+
 
 def generate_mask(image):
     inputs = processor(images=image, return_tensors="pt")
@@ -542,8 +560,8 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
     gr.HTML(
         """
         <div class="header">
-            <h1 class="title">Arbi-Try_On: Virtual Fitting Room</h1>
-            <p class="subtitle">Experience Arbisoft's merchandise with our cutting-edge virtual try-on system!</p>
+            <h1 class="title">ArbiTryOn: Virtual Fitting Room</h1>
+            <p class="subtitle">Experience the future of online shopping with our AI-powered try-on system</p>
         </div>
         """
     )
@@ -561,12 +579,12 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
     gr.HTML(f"""
         <div class="instruction-images">
             <div class="instruction-image">
-                <img src="data:image/jpg;base64,{base64_cor}" alt="Correct pose">
-                <p class="instruction-caption">✅ Correct: Neutral pose</p>
+                <img src="data:image/jpg;base64,{base64_co}" alt="Correct pose">
+                <p class="instruction-caption">✅ Correct: Neutral pose, facing forward</p>
             </div>
             <div class="instruction-image">
                 <img src="data:image/jpeg;base64,{base64_inc}" alt="Incorrect pose">
-                <p class="instruction-caption">❌ Incorrect: complex pose</p>
+                <p class="instruction-caption">❌ Incorrect: Angled or complex pose</p>
             </div>
         </div>
     """)
@@ -591,6 +609,14 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
         visible=True
     )
 
+    # Feedback components
+    with gr.Row(visible=False) as feedback_row:
+        rating = gr.Slider(minimum=1, maximum=5, step=1, label="Rate your experience (1-5 stars)")
+        comment = gr.Textbox(label="Leave a comment (optional)")
+        submit_feedback = gr.Button("Submit Feedback")
+
+    feedback_status = gr.HTML(visible=False)
+
     def select_example_garment(evt: gr.SelectData):
         return example_garments[evt.index]
 
@@ -605,7 +631,8 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                 try_on_output: gr.update(visible=False),
                 error_output: gr.update(value="<p>Please upload both a garment image and a person image to proceed.</p>", visible=True),
                 image_link: gr.update(visible=False),
-                queue_note: gr.update(visible=True)
+                queue_note: gr.update(visible=True),
+                feedback_row: gr.update(visible=False)
             }
             return
 
@@ -695,7 +722,8 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                     try_on_output: gr.update(value=generated_image_path, visible=True),
                     image_link: gr.update(value=link_html, visible=True),
                     error_output: gr.update(visible=False),
-                    queue_note: gr.update(visible=False)
+                    queue_note: gr.update(visible=False),
+                    feedback_row: gr.update(visible=True)
                 }
             else:
                 yield {
@@ -705,7 +733,8 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                     try_on_output: gr.update(visible=False),
                     image_link: gr.update(visible=False),
                     error_output: gr.update(value="<p>We encountered an issue while generating your try-on results. Our team has been notified and is working on a solution. Please try again later.</p>", visible=True),
-                    queue_note: gr.update(visible=True)
+                    queue_note: gr.update(visible=True),
+                    feedback_row: gr.update(visible=False)
                 }
         else:
             yield {
@@ -715,13 +744,26 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                 try_on_output: gr.update(visible=False),
                 image_link: gr.update(visible=False),
                 error_output: gr.update(value=f"<p>An error occurred: {generation_result['error']}</p><p>Our team has been notified and is working on a solution. We appreciate your patience as we improve our beta service.</p>", visible=True),
-                queue_note: gr.update(visible=True)
+                queue_note: gr.update(visible=True),
+                feedback_row: gr.update(visible=False)
             }
 
     try_on_button.click(
         process_virtual_try_on,
         inputs=[clothes_input, person_input],
-        outputs=[loading_indicator, status_info, masked_output, try_on_output, image_link, error_output, queue_note]
+        outputs=[loading_indicator, status_info, masked_output, try_on_output, image_link, error_output, queue_note, feedback_row]
+    )
+
+    def submit_user_feedback(rating, comment):
+        if send_feedback_email(rating, comment):
+            return gr.update(value="Thank you for your feedback!", visible=True)
+        else:
+            return gr.update(value="Failed to submit feedback. Please try again later.", visible=True)
+
+    submit_feedback.click(
+        submit_user_feedback,
+        inputs=[rating, comment],
+        outputs=feedback_status
     )
 
     gr.Markdown(
