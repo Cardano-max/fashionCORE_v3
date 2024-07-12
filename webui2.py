@@ -243,45 +243,33 @@ example_garments = [
     "images/28.png",
 ]
 
-# Fun loading messages
+# Subtle loading messages
 loading_messages = [
-    "Warming up the virtual changing room...",
-    "Teaching AI the art of fashion...",
-    "Convincing pixels to behave...",
-    "Negotiating with stubborn threads...",
-    "Calibrating the digital mirror...",
-    "Preparing to make you look fabulous...",
-    "Summoning the fashion gods...",
-    "Polishing the virtual runway...",
-    "Tuning up the style-o-meter...",
-    "Charging up the glam-o-tron 3000...",
+    "Preparing your virtual fitting room...",
+    "Analyzing fashion possibilities...",
+    "Calculating style quotient...",
+    "Assembling your digital wardrobe...",
+    "Initiating virtual try-on sequence...",
 ]
 
-# Fun error messages
+# Gentle error messages
 error_messages = [
-    "Oops! Our digital tailor seems to have misplaced their scissors.",
-    "Looks like our AI fashionista is having a bad hair day.",
-    "The virtual dressing room is experiencing technical difficulties. Have you tried turning it off and on again?",
-    "Our style algorithm decided to take a coffee break. We're bribing it with virtual cookies to come back.",
-    "The fashion matrix has glitched. We're calling Neo for help.",
+    "Oops! We've hit a small snag. Our team is on it!",
+    "It seems our digital tailor needs a quick coffee break. We'll be right back!",
+    "Minor hiccup in the fashion matrix. We're working to smooth it out.",
+    "Looks like we're experiencing a slight style delay. Thanks for your patience!",
+    "Our virtual dressing room is temporarily out of order. We're fixing it up!",
 ]
 
-# Fun success messages
-success_messages = [
-    "Voila! You're now wearing the future.",
-    "Behold, your digital doppelganger in all its stylish glory!",
-    "You + This Outfit = Fashion Revolution!",
-    "Warning: Your newfound style may cause spontaneous compliments.",
-    "Congrats! You've just leveled up in the game of fashion.",
-]
 
 css = """
     body, .gradio-container {
-        background-color: #1a1a1a;
-        color: #ffffff;
+        background-color: #f0f0f0;
+        color: #333;
     }
     .header {
-        background-color: #2c2c2c;
+        background-color: #2c3e50;
+        color: #ecf0f1;
         padding: 20px;
         border-radius: 10px;
         margin-bottom: 20px;
@@ -290,12 +278,11 @@ css = """
     .title {
         font-size: 36px;
         font-weight: bold;
-        color: #ffffff;
         margin-bottom: 10px;
     }
     .subtitle {
         font-size: 18px;
-        color: #b3b3b3;
+        font-style: italic;
     }
     .example-garments img {
         border-radius: 10px;
@@ -303,10 +290,10 @@ css = """
     }
     .example-garments img:hover {
         transform: scale(1.05);
-        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
     }
     .try-on-button {
-        background-color: #4CAF50;
+        background-color: #3498db;
         color: white;
         padding: 12px 24px;
         border: none;
@@ -316,113 +303,38 @@ css = """
         transition: background-color 0.3s ease;
     }
     .try-on-button:hover {
-        background-color: #45a049;
+        background-color: #2980b9;
     }
-    .queue-info {
-        background-color: #2c2c2c;
-        border: 1px solid #3a3a3a;
+    .info-message {
+        background-color: #f39c12;
+        border: 1px solid #e67e22;
         border-radius: 5px;
         padding: 15px;
         margin-top: 15px;
         font-size: 16px;
-        text-align: center;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-    .error-message {
-        background-color: #ff3860;
-        border: 1px solid #ff1443;
-        border-radius: 5px;
-        padding: 15px;
-        margin-top: 15px;
-        font-size: 16px;
-        text-align: center;
         color: #ffffff;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     .result-links a {
-        color: #3273dc;
+        color: #3498db;
         text-decoration: none;
         margin: 0 10px;
         transition: color 0.3s ease;
     }
     .result-links a:hover {
-        color: #2366d1;
+        color: #2980b9;
         text-decoration: underline;
     }
     .loading {
         display: inline-block;
-        width: 30px;
-        height: 30px;
-        border: 3px solid rgba(255,255,255,.3);
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(0,0,0,.3);
         border-radius: 50%;
-        border-top-color: #ffffff;
+        border-top-color: #3498db;
         animation: spin 1s ease-in-out infinite;
-        -webkit-animation: spin 1s ease-in-out infinite;
     }
     @keyframes spin {
-        to { -webkit-transform: rotate(360deg); }
-    }
-    @-webkit-keyframes spin {
-        to { -webkit-transform: rotate(360deg); }
-    }
-    .instruction-images {
-        display: flex;
-        justify-content: space-around;
-        margin-top: 20px;
-    }
-    .instruction-image {
-        text-align: center;
-        max-width: 45%;
-    }
-    .instruction-image img {
-        max-width: 100%;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-    .instruction-caption {
-        margin-top: 10px;
-        font-size: 14px;
-        color: #b3b3b3;
-    }
-    .fun-header {
-        background-color: #4a0e4e;
-        color: #fff;
-        padding: 20px;
-        border-radius: 10px;
-        text-align: center;
-        margin-bottom: 20px;
-        font-family: 'Comic Sans MS', cursive;
-    }
-    
-    .fun-title {
-        font-size: 48px;
-        margin-bottom: 10px;
-        text-shadow: 2px 2px #ff69b4;
-    }
-    
-    .fun-subtitle {
-        font-size: 24px;
-        font-style: italic;
-    }
-    
-    .fun-button {
-        background-color: #ff69b4;
-        font-family: 'Comic Sans MS', cursive;
-        font-size: 24px;
-        transition: all 0.3s ease;
-    }
-    
-    .fun-button:hover {
-        transform: scale(1.1) rotate(5deg);
-        box-shadow: 0 0 20px #ff69b4;
-    }
-    
-    .fun-message {
-        font-family: 'Comic Sans MS', cursive;
-        font-size: 18px;
-        color: #ff69b4;
-        text-align: center;
-        margin-top: 20px;
+        to { transform: rotate(360deg); }
     }
 """
 
@@ -447,50 +359,50 @@ queue_thread.start()
 with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
     gr.HTML(
         """
-        <div class="fun-header">
-            <h1 class="fun-title">🎭 ArbiTryOn: The Beta Adventure! 🚀</h1>
-            <p class="fun-subtitle">Where pixels meet fashion in a hilariously unpredictable way!</p>
+        <div class="header">
+            <h1 class="title">ArbiTryOn: Virtual Fitting Room</h1>
+            <p class="subtitle">Experience the future of online shopping with our AI-powered try-on system</p>
         </div>
         """
     )
 
-    gr.Markdown("### 🎨 Step 1: Pick Your Poison (I mean, Outfit)")
     with gr.Row():
         with gr.Column(scale=3):
-            example_garment_gallery = gr.Gallery(value=example_garments, columns=2, rows=2, label="Fancy Fabric Choices", elem_class="example-garments")
-            clothes_input = gr.Image(label="Your Chosen Fashion Statement", source="upload", type="numpy")
+            gr.Markdown("### Step 1: Select a Garment")
+            example_garment_gallery = gr.Gallery(value=example_garments, columns=2, rows=2, label="Example Garments", elem_class="example-garments")
+            clothes_input = gr.Image(label="Selected Garment", source="upload", type="numpy")
 
         with gr.Column(scale=3):
-            gr.Markdown("### 📸 Step 2: Strike a Pose (or Just Stand There)")
-            person_input = gr.Image(label="Your Glamorous Self", source="upload", type="numpy")
+            gr.Markdown("### Step 2: Upload Your Photo")
+            person_input = gr.Image(label="Your Photo", source="upload", type="numpy")
 
     gr.HTML(f"""
         <div class="instruction-images">
             <div class="instruction-image">
                 <img src="data:image/jpg;base64,{base64_co}" alt="Correct pose">
-                <p class="instruction-caption">✅ Yass Queen! Work it!</p>
+                <p class="instruction-caption">✅ Correct: Neutral pose, facing forward</p>
             </div>
             <div class="instruction-image">
                 <img src="data:image/jpeg;base64,{base64_inc}" alt="Incorrect pose">
-                <p class="instruction-caption">❌ Oops! Did you forget how to human?</p>
+                <p class="instruction-caption">❌ Incorrect: Angled or complex pose</p>
             </div>
         </div>
     """)
 
-    try_on_button = gr.Button("🌟 Embrace the Fashion Chaos! 🌟", elem_classes="fun-button")
+    try_on_button = gr.Button("Try It On!", elem_classes="try-on-button")
     loading_indicator = gr.HTML(visible=False)
-    status_info = gr.HTML(visible=False, elem_classes="fun-message")
-    masked_output = gr.Image(label="Behind-the-Scenes Magic", visible=False)
-    try_on_output = gr.Image(label="Your Fabulous Makeover", visible=False)
+    status_info = gr.HTML(visible=False, elem_classes="info-message")
+    masked_output = gr.Image(label="Mask Visualization", visible=False)
+    try_on_output = gr.Image(label="Virtual Try-On Result", visible=False)
     image_link = gr.HTML(visible=True, elem_classes="result-links")
-    error_output = gr.HTML(visible=False, elem_classes="fun-message")
+    error_output = gr.HTML(visible=False, elem_classes="info-message")
 
     queue_note = gr.HTML(
         """
-        <div class="queue-note fun-message" style="background-color: #4a0e4e; padding: 15px; border-radius: 5px; margin-top: 20px;">
-            <p style="margin: 0; color: #ffffff;">
-                <strong>Psst!</strong> If you see a queue, our digital hamsters are working overtime. 
-                They appreciate your patience and accept payments in virtual carrots! 🐹🥕
+        <div class="info-message">
+            <p>
+                <strong>Note:</strong> If you see a queue status, your request may take extra time to process. 
+                We appreciate your patience as we work through all requests.
             </p>
         </div>
         """,
@@ -509,7 +421,7 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                 status_info: gr.update(visible=False),
                 masked_output: gr.update(visible=False),
                 try_on_output: gr.update(visible=False),
-                error_output: gr.update(value="<p>Oops! Did you forget to choose both an outfit and a photo? We can't dress up invisible people... yet! 👻</p>", visible=True),
+                error_output: gr.update(value="<p>Please upload both a garment image and a person image to proceed.</p>", visible=True),
                 image_link: gr.update(visible=False),
                 queue_note: gr.update(visible=True)
             }
@@ -518,7 +430,7 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
         if current_task_event.is_set():
             yield {
                 loading_indicator: gr.update(visible=True, value=f"<div class='loading'></div><p>{random.choice(loading_messages)}</p>"),
-                status_info: gr.update(value="<p>Looks like our virtual tailor is busy with another fabulous creation. Your fashion emergency is in line!</p>", visible=True),
+                status_info: gr.update(value="<p>Your request has been queued. We'll process it as soon as possible.</p>", visible=True),
                 masked_output: gr.update(visible=False),
                 try_on_output: gr.update(visible=False),
                 error_output: gr.update(visible=False),
@@ -542,7 +454,7 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
             if current_task_event.is_set() and current_position == 0:
                 yield {
                     loading_indicator: gr.update(visible=True, value=f"<div class='loading'></div><p>{random.choice(loading_messages)}</p>"),
-                    status_info: gr.update(value="<p>Our AI is having a fashion brainstorm. This could take a few minutes, or until it finds the perfect accessory!</p>", visible=True),
+                    status_info: gr.update(value="<p>Processing your request. This may take a few minutes.</p>", visible=True),
                     masked_output: gr.update(visible=False),
                     try_on_output: gr.update(visible=False),
                     error_output: gr.update(visible=False),
@@ -552,7 +464,7 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
             elif current_position > 0:
                 yield {
                     loading_indicator: gr.update(visible=True, value=f"<div class='loading'></div><p>{random.choice(loading_messages)}</p>"),
-                    status_info: gr.update(value=f"<p>You're #{current_position} in line for the virtual runway. Estimated wait time: {current_position * 2} minutes or 3 celebrity meltdowns, whichever comes first!</p>", visible=True),
+                    status_info: gr.update(value=f"<p>Your request is in queue. Current position: {current_position}</p><p>Estimated wait time: {current_position * 2} minutes</p>", visible=True),
                     masked_output: gr.update(visible=False),
                     try_on_output: gr.update(visible=False),
                     error_output: gr.update(visible=False),
@@ -562,7 +474,7 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
             else:
                 yield {
                     loading_indicator: gr.update(visible=True, value=f"<div class='loading'></div><p>{random.choice(loading_messages)}</p>"),
-                    status_info: gr.update(value="<p>You're up next! Our AI is warming up its fashion sensors just for you!</p>", visible=True),
+                    status_info: gr.update(value="<p>Your request is next in line. Processing will begin shortly.</p>", visible=True),
                     masked_output: gr.update(visible=False),
                     try_on_output: gr.update(visible=False),
                     error_output: gr.update(visible=False),
@@ -581,7 +493,7 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                 masked_output: gr.update(visible=False),
                 try_on_output: gr.update(visible=False),
                 image_link: gr.update(visible=False),
-                error_output: gr.update(value=f"<p>{random.choice(error_messages)}</p>", visible=True),
+                error_output: gr.update(value=f"<p>{random.choice(error_messages)}</p><p>Remember, we're still in beta. We appreciate your understanding as we work to improve our service.</p>", visible=True),
                 queue_note: gr.update(visible=True)
             }
         elif generation_result['success']:
@@ -592,11 +504,11 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
             if gradio_url and generated_image_path and masked_image_path:
                 output_image_link = f"{gradio_url}/file={generated_image_path}"
                 masked_image_link = f"{gradio_url}/file={masked_image_path}"
-                link_html = f'<a href="{output_image_link}" target="_blank">Behold Your Fabulous Self!</a> | <a href="{masked_image_link}" target="_blank">Peek Behind the Fashion Curtain</a>'
+                link_html = f'<a href="{output_image_link}" target="_blank">View Try-On Result</a> | <a href="{masked_image_link}" target="_blank">View Mask Visualization</a>'
 
                 yield {
                     loading_indicator: gr.update(visible=False),
-                    status_info: gr.update(value=f"<p>{random.choice(success_messages)}</p>", visible=True),
+                    status_info: gr.update(value="<p>Your virtual try-on is complete! Check out the results below.</p>", visible=True),
                     masked_output: gr.update(value=masked_image_path, visible=True),
                     try_on_output: gr.update(value=generated_image_path, visible=True),
                     image_link: gr.update(value=link_html, visible=True),
@@ -610,7 +522,7 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                     masked_output: gr.update(visible=False),
                     try_on_output: gr.update(visible=False),
                     image_link: gr.update(visible=False),
-                    error_output: gr.update(value="<p>Our digital runway hit a snag. The AI models are taking an unscheduled coffee break. We're bribing them with virtual cookies to come back!</p>", visible=True),
+                    error_output: gr.update(value="<p>We encountered an issue while generating your try-on results. Our team has been notified and is working on a solution. Please try again later.</p>", visible=True),
                     queue_note: gr.update(visible=True)
                 }
         else:
@@ -620,7 +532,7 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                 masked_output: gr.update(visible=False),
                 try_on_output: gr.update(visible=False),
                 image_link: gr.update(visible=False),
-                error_output: gr.update(value=f"<p>Fashion emergency! {generation_result['error']}</p><p>Our team of style superheroes has been alerted and is flying to the rescue!</p>", visible=True),
+                error_output: gr.update(value=f"<p>An error occurred: {generation_result['error']}</p><p>Our team has been notified and is working on a solution. We appreciate your patience as we improve our beta service.</p>", visible=True),
                 queue_note: gr.update(visible=True)
             }
 
@@ -632,16 +544,16 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
 
     gr.Markdown(
         """
-        ## 🎭 The Not-So-Secret Recipe for Fashion Magic
-        1. Pick a garment that screams "YOU" (or whispers, if you're into that).
-        2. Upload a photo of yourself looking fabulous (or just standing there, we don't judge).
-        3. Hit that sparkly button and watch as we turn you into a digital fashion icon!
+        ## How It Works
+        1. Choose a garment from our collection or upload your own.
+        2. Upload a photo of yourself in a neutral pose (see instructions above).
+        3. Click "Try It On!" and let our AI work its magic.
 
-        Remember: ArbiTryOn is still learning the ropes, so if things get weird, just call it "avant-garde" and you're golden! 🌟
-
-        P.S. No pixels were harmed in the making of this virtual fashion show.
+        Please note: ArbiTryOn is currently in beta. While we strive for accuracy, results may vary. 
+        We're continuously working to improve the experience and appreciate your feedback!
         """
     )
+
 
 demo.queue()
 
