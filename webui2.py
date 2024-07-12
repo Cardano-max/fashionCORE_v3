@@ -264,6 +264,154 @@ error_messages = [
 
 css = """
     body, .gradio-container {
+        background-color: #1a1a1a;
+        color: #ffffff;
+    }
+    .header {
+        background-color: #2c2c2c;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .title {
+        font-size: 36px;
+        font-weight: bold;
+        color: #ffffff;
+        margin-bottom: 10px;
+    }
+    .subtitle {
+        font-size: 18px;
+        color: #b3b3b3;
+    }
+    .example-garments img {
+        border-radius: 10px;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .example-garments img:hover {
+        transform: scale(1.05);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.3);
+    }
+    .try-on-button {
+        background-color: #4CAF50;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 5px;
+        font-size: 18px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+    .try-on-button:hover {
+        background-color: #45a049;
+    }
+    .queue-info {
+        background-color: #2c2c2c;
+        border: 1px solid #3a3a3a;
+        border-radius: 5px;
+        padding: 15px;
+        margin-top: 15px;
+        font-size: 16px;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .error-message {
+        background-color: #ff3860;
+        border: 1px solid #ff1443;
+        border-radius: 5px;
+        padding: 15px;
+        margin-top: 15px;
+        font-size: 16px;
+        text-align: center;
+        color: #ffffff;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .result-links a {
+        color: #3273dc;
+        text-decoration: none;
+        margin: 0 10px;
+        transition: color 0.3s ease;
+    }
+    .result-links a:hover {
+        color: #2366d1;
+        text-decoration: underline;
+    }
+    .loading {
+        display: inline-block;
+        width: 30px;
+        height: 30px;
+        border: 3px solid rgba(255,255,255,.3);
+        border-radius: 50%;
+        border-top-color: #ffffff;
+        animation: spin 1s ease-in-out infinite;
+        -webkit-animation: spin 1s ease-in-out infinite;
+    }
+    @keyframes spin {
+        to { -webkit-transform: rotate(360deg); }
+    }
+    @-webkit-keyframes spin {
+        to { -webkit-transform: rotate(360deg); }
+    }
+    .instruction-images {
+        display: flex;
+        justify-content: space-around;
+        margin-top: 20px;
+    }
+    .instruction-image {
+        text-align: center;
+        max-width: 45%;
+    }
+    .instruction-image img {
+        max-width: 100%;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .instruction-caption {
+        margin-top: 10px;
+        font-size: 14px;
+        color: #b3b3b3;
+    }
+    .fun-header {
+        background-color: #4a0e4e;
+        color: #fff;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        margin-bottom: 20px;
+        font-family: 'Comic Sans MS', cursive;
+    }
+    
+    .fun-title {
+        font-size: 48px;
+        margin-bottom: 10px;
+        text-shadow: 2px 2px #ff69b4;
+    }
+    
+    .fun-subtitle {
+        font-size: 24px;
+        font-style: italic;
+    }
+    
+    .fun-button {
+        background-color: #ff69b4;
+        font-family: 'Comic Sans MS', cursive;
+        font-size: 24px;
+        transition: all 0.3s ease;
+    }
+    
+    .fun-button:hover {
+        transform: scale(1.1) rotate(5deg);
+        box-shadow: 0 0 20px #ff69b4;
+    }
+    
+    .fun-message {
+        font-family: 'Comic Sans MS', cursive;
+        font-size: 18px;
+        color: #ff69b4;
+        text-align: center;
+        margin-top: 20px;
+    }
+    body, .gradio-container {
         background-color: #f0f0f0;
         color: #333;
     }
@@ -553,8 +701,7 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
         We're continuously working to improve the experience and appreciate your feedback!
         """
     )
-
-
+    
 demo.queue()
 
 def custom_launch():
