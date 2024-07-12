@@ -27,7 +27,7 @@ def image_to_base64(img_path):
     with open(img_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
 
-base64_co = image_to_base64("images/co.jpg")
+base64_cor = image_to_base64("images/cor.jpg")
 base64_inc = image_to_base64("images/inc.jpg")
 
 
@@ -570,7 +570,7 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
     gr.HTML(f"""
         <div class="instruction-images">
             <div class="instruction-image">
-                <img src="data:image/jpg;base64,{base64_co}" alt="Correct pose">
+                <img src="data:image/jpg;base64,{base64_cor}" alt="Correct pose">
                 <p class="instruction-caption">✅ Correct: Neutral pose, facing forward</p>
             </div>
             <div class="instruction-image">
