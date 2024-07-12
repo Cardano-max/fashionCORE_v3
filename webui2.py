@@ -412,8 +412,8 @@ css = """
         margin-top: 20px;
     }
     body, .gradio-container {
-        background-color: #f0f0f0;
-        color: #333;
+        background-color: #1a1a1a;
+        color: #ffffff;
     }
     .header {
         background-color: #2c3e50;
@@ -701,7 +701,7 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
         We're continuously working to improve the experience and appreciate your feedback!
         """
     )
-    
+
 demo.queue()
 
 def custom_launch():
