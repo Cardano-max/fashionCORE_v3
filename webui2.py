@@ -587,7 +587,7 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
     gr.HTML(f"""
         <div class="instruction-images">
             <div class="instruction-image">
-                <img src="data:image/jpg;base64,{base64_co}" alt="Correct pose">
+                <img src="data:image/jpg;base64,{base64_cor}" alt="Correct pose">
                 <p class="instruction-caption">✅ Correct: Neutral pose, facing forward</p>
             </div>
             <div class="instruction-image">
