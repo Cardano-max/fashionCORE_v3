@@ -21,7 +21,6 @@ from transformers import SegformerImageProcessor, AutoModelForSemanticSegmentati
 from modules.flags import Performance
 from queue import Queue
 from threading import Lock, Event, Thread
-
 import base64
 
 def image_to_base64(img_path):
@@ -244,6 +243,38 @@ example_garments = [
     "images/28.png",
 ]
 
+# Fun loading messages
+loading_messages = [
+    "Warming up the virtual changing room...",
+    "Teaching AI the art of fashion...",
+    "Convincing pixels to behave...",
+    "Negotiating with stubborn threads...",
+    "Calibrating the digital mirror...",
+    "Preparing to make you look fabulous...",
+    "Summoning the fashion gods...",
+    "Polishing the virtual runway...",
+    "Tuning up the style-o-meter...",
+    "Charging up the glam-o-tron 3000...",
+]
+
+# Fun error messages
+error_messages = [
+    "Oops! Our digital tailor seems to have misplaced their scissors.",
+    "Looks like our AI fashionista is having a bad hair day.",
+    "The virtual dressing room is experiencing technical difficulties. Have you tried turning it off and on again?",
+    "Our style algorithm decided to take a coffee break. We're bribing it with virtual cookies to come back.",
+    "The fashion matrix has glitched. We're calling Neo for help.",
+]
+
+# Fun success messages
+success_messages = [
+    "Voila! You're now wearing the future.",
+    "Behold, your digital doppelganger in all its stylish glory!",
+    "You + This Outfit = Fashion Revolution!",
+    "Warning: Your newfound style may cause spontaneous compliments.",
+    "Congrats! You've just leveled up in the game of fashion.",
+]
+
 css = """
     body, .gradio-container {
         background-color: #1a1a1a;
@@ -353,6 +384,46 @@ css = """
         font-size: 14px;
         color: #b3b3b3;
     }
+    .fun-header {
+        background-color: #4a0e4e;
+        color: #fff;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        margin-bottom: 20px;
+        font-family: 'Comic Sans MS', cursive;
+    }
+    
+    .fun-title {
+        font-size: 48px;
+        margin-bottom: 10px;
+        text-shadow: 2px 2px #ff69b4;
+    }
+    
+    .fun-subtitle {
+        font-size: 24px;
+        font-style: italic;
+    }
+    
+    .fun-button {
+        background-color: #ff69b4;
+        font-family: 'Comic Sans MS', cursive;
+        font-size: 24px;
+        transition: all 0.3s ease;
+    }
+    
+    .fun-button:hover {
+        transform: scale(1.1) rotate(5deg);
+        box-shadow: 0 0 20px #ff69b4;
+    }
+    
+    .fun-message {
+        font-family: 'Comic Sans MS', cursive;
+        font-size: 18px;
+        color: #ff69b4;
+        text-align: center;
+        margin-top: 20px;
+    }
 """
 
 def process_queue():
@@ -376,51 +447,50 @@ queue_thread.start()
 with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
     gr.HTML(
         """
-        <div class="header">
-            <h1 class="title">ArbiTryOn</h1>
-            <p class="subtitle">Experience Arbisoft's merchandise with our cutting-edge virtual try-on system!</p>
+        <div class="fun-header">
+            <h1 class="fun-title">🎭 ArbiTryOn: The Beta Adventure! 🚀</h1>
+            <p class="fun-subtitle">Where pixels meet fashion in a hilariously unpredictable way!</p>
         </div>
         """
     )
 
+    gr.Markdown("### 🎨 Step 1: Pick Your Poison (I mean, Outfit)")
     with gr.Row():
         with gr.Column(scale=3):
-            gr.Markdown("### Choose a Garment")
-            example_garment_gallery = gr.Gallery(value=example_garments, columns=2, rows=2, label="Example Garments", elem_class="example-garments")
-            clothes_input = gr.Image(label="Selected Garment", source="upload", type="numpy")
+            example_garment_gallery = gr.Gallery(value=example_garments, columns=2, rows=2, label="Fancy Fabric Choices", elem_class="example-garments")
+            clothes_input = gr.Image(label="Your Chosen Fashion Statement", source="upload", type="numpy")
 
         with gr.Column(scale=3):
-            gr.Markdown("### Upload Your Photo")
-            person_input = gr.Image(label="Your Photo", source="upload", type="numpy")
+            gr.Markdown("### 📸 Step 2: Strike a Pose (or Just Stand There)")
+            person_input = gr.Image(label="Your Glamorous Self", source="upload", type="numpy")
 
     gr.HTML(f"""
         <div class="instruction-images">
             <div class="instruction-image">
                 <img src="data:image/jpg;base64,{base64_co}" alt="Correct pose">
-                <p class="instruction-caption">✅ Correct: Neutral pose, facing forward</p>
+                <p class="instruction-caption">✅ Yass Queen! Work it!</p>
             </div>
             <div class="instruction-image">
                 <img src="data:image/jpeg;base64,{base64_inc}" alt="Incorrect pose">
-                <p class="instruction-caption">❌ Incorrect: Angled or complex pose</p>
+                <p class="instruction-caption">❌ Oops! Did you forget how to human?</p>
             </div>
         </div>
     """)
 
-
-    try_on_button = gr.Button("Try It On!", elem_classes="try-on-button")
-    loading_indicator = gr.HTML('<div class="loading"></div>', visible=False)
-    status_info = gr.HTML(visible=False, elem_classes="queue-info")
-    masked_output = gr.Image(label="Masked Image", visible=False)
-    try_on_output = gr.Image(label="Virtual Try-On Result", visible=False)
+    try_on_button = gr.Button("🌟 Embrace the Fashion Chaos! 🌟", elem_classes="fun-button")
+    loading_indicator = gr.HTML(visible=False)
+    status_info = gr.HTML(visible=False, elem_classes="fun-message")
+    masked_output = gr.Image(label="Behind-the-Scenes Magic", visible=False)
+    try_on_output = gr.Image(label="Your Fabulous Makeover", visible=False)
     image_link = gr.HTML(visible=True, elem_classes="result-links")
-    error_output = gr.HTML(visible=False, elem_classes="error-message")
+    error_output = gr.HTML(visible=False, elem_classes="fun-message")
 
     queue_note = gr.HTML(
         """
-        <div class="queue-note" style="background-color: #3a3a3a; padding: 15px; border-radius: 5px; margin-top: 20px;">
+        <div class="queue-note fun-message" style="background-color: #4a0e4e; padding: 15px; border-radius: 5px; margin-top: 20px;">
             <p style="margin: 0; color: #ffffff;">
-                <strong>Note:</strong> If you see a queue status, it means your request will take some extra time to start. 
-                Don't worry, we're processing it as fast as we can. Thank you for your patience!
+                <strong>Psst!</strong> If you see a queue, our digital hamsters are working overtime. 
+                They appreciate your patience and accept payments in virtual carrots! 🐹🥕
             </p>
         </div>
         """,
@@ -439,17 +509,16 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                 status_info: gr.update(visible=False),
                 masked_output: gr.update(visible=False),
                 try_on_output: gr.update(visible=False),
-                error_output: gr.update(value="<p>Please upload both a garment image and a person image.</p>", visible=True),
+                error_output: gr.update(value="<p>Oops! Did you forget to choose both an outfit and a photo? We can't dress up invisible people... yet! 👻</p>", visible=True),
                 image_link: gr.update(visible=False),
                 queue_note: gr.update(visible=True)
             }
             return
 
-        # Check if there's already a task in progress
         if current_task_event.is_set():
             yield {
-                loading_indicator: gr.update(visible=True),
-                status_info: gr.update(value="<p>The system is currently processing another request. Your try-on will be queued and might take longer than usual. Please hold tight!</p>", visible=True),
+                loading_indicator: gr.update(visible=True, value=f"<div class='loading'></div><p>{random.choice(loading_messages)}</p>"),
+                status_info: gr.update(value="<p>Looks like our virtual tailor is busy with another fabulous creation. Your fashion emergency is in line!</p>", visible=True),
                 masked_output: gr.update(visible=False),
                 try_on_output: gr.update(visible=False),
                 error_output: gr.update(visible=False),
@@ -472,8 +541,8 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
         while not generation_done:
             if current_task_event.is_set() and current_position == 0:
                 yield {
-                    loading_indicator: gr.update(visible=True),
-                    status_info: gr.update(value="<p>Your request is being processed. This may take a few minutes. We appreciate your patience!</p>", visible=True),
+                    loading_indicator: gr.update(visible=True, value=f"<div class='loading'></div><p>{random.choice(loading_messages)}</p>"),
+                    status_info: gr.update(value="<p>Our AI is having a fashion brainstorm. This could take a few minutes, or until it finds the perfect accessory!</p>", visible=True),
                     masked_output: gr.update(visible=False),
                     try_on_output: gr.update(visible=False),
                     error_output: gr.update(visible=False),
@@ -482,8 +551,8 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                 }
             elif current_position > 0:
                 yield {
-                    loading_indicator: gr.update(visible=True),
-                    status_info: gr.update(value=f"<p>Your request is in queue. Current position: {current_position}</p><p>Estimated wait time: {current_position * 2} minutes</p><p>We're working hard to get to your request. Thank you for your patience!</p>", visible=True),
+                    loading_indicator: gr.update(visible=True, value=f"<div class='loading'></div><p>{random.choice(loading_messages)}</p>"),
+                    status_info: gr.update(value=f"<p>You're #{current_position} in line for the virtual runway. Estimated wait time: {current_position * 2} minutes or 3 celebrity meltdowns, whichever comes first!</p>", visible=True),
                     masked_output: gr.update(visible=False),
                     try_on_output: gr.update(visible=False),
                     error_output: gr.update(visible=False),
@@ -492,8 +561,8 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                 }
             else:
                 yield {
-                    loading_indicator: gr.update(visible=True),
-                    status_info: gr.update(value="<p>Exciting news! Your request is next in line. Get ready to see your virtual try-on!</p>", visible=True),
+                    loading_indicator: gr.update(visible=True, value=f"<div class='loading'></div><p>{random.choice(loading_messages)}</p>"),
+                    status_info: gr.update(value="<p>You're up next! Our AI is warming up its fashion sensors just for you!</p>", visible=True),
                     masked_output: gr.update(visible=False),
                     try_on_output: gr.update(visible=False),
                     error_output: gr.update(visible=False),
@@ -512,7 +581,7 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                 masked_output: gr.update(visible=False),
                 try_on_output: gr.update(visible=False),
                 image_link: gr.update(visible=False),
-                error_output: gr.update(value="<p>Oops! An unexpected error occurred. Our team has been notified. Please try again later.</p>", visible=True),
+                error_output: gr.update(value=f"<p>{random.choice(error_messages)}</p>", visible=True),
                 queue_note: gr.update(visible=True)
             }
         elif generation_result['success']:
@@ -523,11 +592,11 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
             if gradio_url and generated_image_path and masked_image_path:
                 output_image_link = f"{gradio_url}/file={generated_image_path}"
                 masked_image_link = f"{gradio_url}/file={masked_image_path}"
-                link_html = f'<a href="{output_image_link}" target="_blank">View Your Try-On Result</a> | <a href="{masked_image_link}" target="_blank">View Masked Image</a>'
+                link_html = f'<a href="{output_image_link}" target="_blank">Behold Your Fabulous Self!</a> | <a href="{masked_image_link}" target="_blank">Peek Behind the Fashion Curtain</a>'
 
                 yield {
                     loading_indicator: gr.update(visible=False),
-                    status_info: gr.update(value="<p>Your virtual try-on is complete! Check out the results below.</p>", visible=True),
+                    status_info: gr.update(value=f"<p>{random.choice(success_messages)}</p>", visible=True),
                     masked_output: gr.update(value=masked_image_path, visible=True),
                     try_on_output: gr.update(value=generated_image_path, visible=True),
                     image_link: gr.update(value=link_html, visible=True),
@@ -541,7 +610,7 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                     masked_output: gr.update(visible=False),
                     try_on_output: gr.update(visible=False),
                     image_link: gr.update(visible=False),
-                    error_output: gr.update(value="<p>We encountered an issue while generating your try-on links. Our team is looking into it. Please try again later.</p>", visible=True),
+                    error_output: gr.update(value="<p>Our digital runway hit a snag. The AI models are taking an unscheduled coffee break. We're bribing them with virtual cookies to come back!</p>", visible=True),
                     queue_note: gr.update(visible=True)
                 }
         else:
@@ -551,7 +620,7 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                 masked_output: gr.update(visible=False),
                 try_on_output: gr.update(visible=False),
                 image_link: gr.update(visible=False),
-                error_output: gr.update(value=f"<p>We hit a snag: {generation_result['error']}</p><p>Don't worry, our team is on it. Please try again in a few moments.</p>", visible=True),
+                error_output: gr.update(value=f"<p>Fashion emergency! {generation_result['error']}</p><p>Our team of style superheroes has been alerted and is flying to the rescue!</p>", visible=True),
                 queue_note: gr.update(visible=True)
             }
 
@@ -563,12 +632,14 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
 
     gr.Markdown(
         """
-        ## How It Works
-        1. Choose a garment from our curated collection or upload your own.
-        2. Upload a photo of yourself in a neutral pose (see instructions above).
-        3. Click "Try It On!" and watch the magic unfold!
+        ## 🎭 The Not-So-Secret Recipe for Fashion Magic
+        1. Pick a garment that screams "YOU" (or whispers, if you're into that).
+        2. Upload a photo of yourself looking fabulous (or just standing there, we don't judge).
+        3. Hit that sparkly button and watch as we turn you into a digital fashion icon!
 
-        Experience the future of online shopping with ArbiTryOn - where innovation meets style!
+        Remember: ArbiTryOn is still learning the ropes, so if things get weird, just call it "avant-garde" and you're golden! 🌟
+
+        P.S. No pixels were harmed in the making of this virtual fashion show.
         """
     )
 
