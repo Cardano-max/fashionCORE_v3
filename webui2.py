@@ -264,98 +264,101 @@ error_messages = [
 
 css = """
     body, .gradio-container {
-        background-color: #1a1a1a;
-        color: #ffffff;
+        background-color: #0f1923;
+        color: #e0e0e0;
+        font-family: 'Roboto', sans-serif;
     }
     .header {
-        background-color: #2c2c2c;
-        padding: 20px;
-        border-radius: 10px;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        padding: 30px;
+        border-radius: 15px;
+        margin-bottom: 30px;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
     }
     .title {
-        font-size: 36px;
-        font-weight: bold;
+        font-size: 42px;
+        font-weight: 700;
         color: #ffffff;
-        margin-bottom: 10px;
+        margin-bottom: 15px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
     }
     .subtitle {
-        font-size: 18px;
-        color: #b3b3b3;
+        font-size: 20px;
+        color: #b0bec5;
+        font-weight: 300;
     }
     .example-garments img {
-        border-radius: 10px;
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border-radius: 12px;
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
     .example-garments img:hover {
-        transform: scale(1.05);
-        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.3);
+        transform: translateY(-5px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
     }
     .try-on-button {
-        background-color: #4CAF50;
+        background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
         color: white;
-        padding: 12px 24px;
+        padding: 15px 30px;
         border: none;
-        border-radius: 5px;
+        border-radius: 50px;
         font-size: 18px;
+        font-weight: 600;
         cursor: pointer;
-        transition: background-color 0.3s ease;
+        transition: all 0.3s ease;
+        text-transform: uppercase;
+        letter-spacing: 1px;
     }
     .try-on-button:hover {
-        background-color: #45a049;
+        background: linear-gradient(135deg, #0072ff 0%, #00c6ff 100%);
+        box-shadow: 0 10px 20px rgba(0, 114, 255, 0.3);
     }
-    .queue-info {
-        background-color: #2c2c2c;
-        border: 1px solid #3a3a3a;
-        border-radius: 5px;
-        padding: 15px;
-        margin-top: 15px;
+    .queue-info, .info-message {
+        background-color: rgba(41, 128, 185, 0.1);
+        border: 1px solid #2980b9;
+        border-radius: 10px;
+        padding: 20px;
+        margin-top: 20px;
         font-size: 16px;
         text-align: center;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        backdrop-filter: blur(10px);
     }
     .error-message {
-        background-color: #ff3860;
-        border: 1px solid #ff1443;
-        border-radius: 5px;
-        padding: 15px;
-        margin-top: 15px;
-        font-size: 16px;
-        text-align: center;
-        color: #ffffff;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        background-color: rgba(231, 76, 60, 0.1);
+        border: 1px solid #e74c3c;
+        color: #e74c3c;
     }
     .result-links a {
-        color: #3273dc;
+        color: #3498db;
         text-decoration: none;
-        margin: 0 10px;
+        margin: 0 15px;
         transition: color 0.3s ease;
+        font-weight: 500;
     }
     .result-links a:hover {
-        color: #2366d1;
-        text-decoration: underline;
+        color: #2ecc71;
+        text-decoration: none;
     }
     .loading {
         display: inline-block;
         width: 30px;
         height: 30px;
-        border: 3px solid rgba(255,255,255,.3);
+        border: 3px solid rgba(52, 152, 219, 0.3);
         border-radius: 50%;
-        border-top-color: #ffffff;
-        animation: spin 1s ease-in-out infinite;
-        -webkit-animation: spin 1s ease-in-out infinite;
+        border-top-color: #3498db;
+        animation: spin 1s cubic-bezier(0.55, 0.055, 0.675, 0.19) infinite;
     }
     @keyframes spin {
-        to { -webkit-transform: rotate(360deg); }
-    }
-    @-webkit-keyframes spin {
-        to { -webkit-transform: rotate(360deg); }
+        to { transform: rotate(360deg); }
     }
     .instruction-images {
         display: flex;
         justify-content: space-around;
-        margin-top: 20px;
+        margin-top: 30px;
+        background: rgba(255, 255, 255, 0.05);
+        padding: 20px;
+        border-radius: 15px;
     }
     .instruction-image {
         text-align: center;
@@ -363,129 +366,49 @@ css = """
     }
     .instruction-image img {
         max-width: 100%;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border-radius: 12px;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        transition: transform 0.3s ease;
+    }
+    .instruction-image img:hover {
+        transform: scale(1.05);
     }
     .instruction-caption {
-        margin-top: 10px;
-        font-size: 14px;
-        color: #b3b3b3;
-    }
-    .fun-header {
-        background-color: #4a0e4e;
-        color: #fff;
-        padding: 20px;
-        border-radius: 10px;
-        text-align: center;
-        margin-bottom: 20px;
-        font-family: 'Comic Sans MS', cursive;
-    }
-    
-    .fun-title {
-        font-size: 48px;
-        margin-bottom: 10px;
-        text-shadow: 2px 2px #ff69b4;
-    }
-    
-    .fun-subtitle {
-        font-size: 24px;
-        font-style: italic;
-    }
-    
-    .fun-button {
-        background-color: #ff69b4;
-        font-family: 'Comic Sans MS', cursive;
-        font-size: 24px;
-        transition: all 0.3s ease;
-    }
-    
-    .fun-button:hover {
-        transform: scale(1.1) rotate(5deg);
-        box-shadow: 0 0 20px #ff69b4;
-    }
-    
-    .fun-message {
-        font-family: 'Comic Sans MS', cursive;
-        font-size: 18px;
-        color: #ff69b4;
-        text-align: center;
-        margin-top: 20px;
-    }
-    body, .gradio-container {
-        background-color: #1a1a1a;
-        color: #ffffff;
-    }
-    .header {
-        background-color: #2c3e50;
-        color: #ecf0f1;
-        padding: 20px;
-        border-radius: 10px;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-    .title {
-        font-size: 36px;
-        font-weight: bold;
-        margin-bottom: 10px;
-    }
-    .subtitle {
-        font-size: 18px;
-        font-style: italic;
-    }
-    .example-garments img {
-        border-radius: 10px;
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-    .example-garments img:hover {
-        transform: scale(1.05);
-        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
-    }
-    .try-on-button {
-        background-color: #3498db;
-        color: white;
-        padding: 12px 24px;
-        border: none;
-        border-radius: 5px;
-        font-size: 18px;
-        cursor: pointer;
-        transition: background-color 0.3s ease;
-    }
-    .try-on-button:hover {
-        background-color: #2980b9;
-    }
-    .info-message {
-        background-color: #f39c12;
-        border: 1px solid #e67e22;
-        border-radius: 5px;
-        padding: 15px;
         margin-top: 15px;
         font-size: 16px;
-        color: #ffffff;
+        color: #bdc3c7;
+        font-weight: 500;
     }
-    .result-links a {
-        color: #3498db;
-        text-decoration: none;
-        margin: 0 10px;
-        transition: color 0.3s ease;
+    /* Custom scrollbar for a futuristic look */
+    ::-webkit-scrollbar {
+        width: 10px;
     }
-    .result-links a:hover {
-        color: #2980b9;
-        text-decoration: underline;
+    ::-webkit-scrollbar-track {
+        background: #0f1923;
     }
-    .loading {
-        display: inline-block;
-        width: 20px;
-        height: 20px;
-        border: 3px solid rgba(0,0,0,.3);
-        border-radius: 50%;
-        border-top-color: #3498db;
-        animation: spin 1s ease-in-out infinite;
+    ::-webkit-scrollbar-thumb {
+        background: #2980b9;
+        border-radius: 5px;
     }
-    @keyframes spin {
-        to { transform: rotate(360deg); }
+    ::-webkit-scrollbar-thumb:hover {
+        background: #3498db;
+    }
+    /* Gradio-specific customizations */
+    .gr-button-primary {
+        background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%) !important;
+        border: none !important;
+    }
+    .gr-input, .gr-dropdown {
+        background-color: #1a2635 !important;
+        border: 1px solid #2c3e50 !important;
+        color: #ecf0f1 !important;
+    }
+    .gr-form {
+        background-color: #1a2635 !important;
+        border: 1px solid #2c3e50 !important;
+        border-radius: 10px !important;
     }
 """
-
 def process_queue():
     while True:
         task = task_queue.get()
