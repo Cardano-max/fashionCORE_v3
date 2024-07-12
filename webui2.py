@@ -27,7 +27,7 @@ def image_to_base64(img_path):
     with open(img_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
 
-base64_cor = image_to_base64("images/cor.jpg")
+base64_cor = image_to_base64("images/corr.jpg")
 base64_inc = image_to_base64("images/inc.jpg")
 
 
