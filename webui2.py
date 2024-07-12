@@ -431,8 +431,8 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
     gr.HTML(
         """
         <div class="header">
-            <h1 class="title">ArbiTryOn: Virtual Fitting Room</h1>
-            <p class="subtitle">Experience the future of online shopping with our AI-powered try-on system</p>
+            <h1 class="title">Arbi-Try_On: Virtual Fitting Room</h1>
+            <p class="subtitle">Experience Arbisoft's merchandise with our cutting-edge virtual try-on system!</p>
         </div>
         """
     )
