@@ -38,7 +38,7 @@
         "Fooocus Sharp"
     ],
     "default_aspect_ratio": "896*1152",
-    "default_overwrite_step": 25,
+    "default_overwrite_step": 60,
     "checkpoint_downloads": {
         "realisticStockPhoto_v20.safetensors": "https://huggingface.co/lllyasviel/fav_models/resolve/main/fav/realisticStockPhoto_v20.safetensors",
         "sd_xl_refiner_1.0_0.9vae.safetensors": "https://huggingface.co/stabilityai/stable-diffusion-xl-refiner-1.0/resolve/main/sd_xl_refiner_1.0_0.9vae.safetensors"
