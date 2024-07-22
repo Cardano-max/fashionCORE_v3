@@ -59,7 +59,7 @@ queue_update_event = Event()
 # Function to send email (using Mailpit for demonstration)
 def send_feedback_email(rating, comment):
     sender_email = "feedback@arbitryon.com"
-    receiver_email = "feedback@arbitryon.com"  # This would be your actual feedback collection email
+    receiver_email = "feedback@arbitryon.com" 
     
     message = MIMEMultipart()
     message["From"] = sender_email
