@@ -105,15 +105,9 @@ lora_count_with_lcm = lora_count + 1
 controlnet_image_count = 4
 
 
-class Steps(IntEnum):
-    QUALITY = 45
-    SPEED = 25
-    EXTREME_SPEED = 8
-
-
 class StepsUOV(IntEnum):
-    QUALITY = 36
-    SPEED = 18
+    QUALITY = 60
+    SPEED = 45
     EXTREME_SPEED = 8
 
 
@@ -134,7 +128,7 @@ class Performance(Enum):
 
 
 performance_selections = [
-    ('Quality <span style="color: grey;"> \U00002223 45 steps</span>', Performance.QUALITY.value),
-    ('Speed <span style="color: grey;"> \U00002223 25 steps</span>', Performance.SPEED.value),
+    ('Quality <span style="color: grey;"> \U00002223 60 steps</span>', Performance.QUALITY.value),
+    ('Speed <span style="color: grey;"> \U00002223 45 steps</span>', Performance.SPEED.value),
     ('Extreme Speed <span style="color: grey;"> \U00002223 8 steps</span>', Performance.EXTREME_SPEED.value)
 ]

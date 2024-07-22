@@ -148,6 +148,8 @@ def virtual_try_on(clothes_image, person_image):
         for lora in modules.config.default_loras:
             loras.extend(lora)
 
+        seed = 666
+
         args = [
             True,
             "",
@@ -158,7 +160,7 @@ def virtual_try_on(clothes_image, person_image):
             modules.config.default_aspect_ratio,
             1,
             modules.config.default_output_format,
-            random.randint(constants.MIN_SEED, constants.MAX_SEED),
+            seed,
             modules.config.default_sample_sharpness,
             modules.config.default_cfg_scale,
             modules.config.default_base_model_name,

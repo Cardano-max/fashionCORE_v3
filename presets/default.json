@@ -1,5 +1,5 @@
 {
-    "default_model": "FluentlyXL-v4.safetensors",
+    "default_model": "aura_flow_0.1.safetensors",
     "default_refiner": "None",
     "default_refiner_switch": 0.5,
     "default_loras": [
@@ -36,16 +36,17 @@
         "Fooocus Enhance",
         "Fooocus Sharp"
     ],
-    "default_aspect_ratio": "1152*896",
+    "default_aspect_ratio": "1024*1024",
     "default_overwrite_step": -1,
     "checkpoint_downloads": {
-        "FluentlyXL-v4.safetensors": "https://huggingface.co/fluently/Fluently-XL-v4/resolve/main/FluentlyXL-v4.safetensors"
+        "aura_flow_0.1.safetensors": "https://huggingface.co/fal/AuraFlow/resolve/main/aura_flow_0.1.safetensors"
     },
     "embeddings_downloads": {},
     "lora_downloads": {
         "sd_xl_offset_example-lora_1.0.safetensors": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_offset_example-lora_1.0.safetensors"
     },
     "previous_default_models": [
+        "FluentlyXL-v4.safetensors",
         "FluentlyXL-v3.safetensors",
         "FluentlyXL-v2.safetensors",
         "FluentlyXL-v1.safetensors"
