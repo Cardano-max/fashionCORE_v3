@@ -105,6 +105,12 @@ lora_count_with_lcm = lora_count + 1
 controlnet_image_count = 4
 
 
+class Steps(IntEnum):
+    QUALITY = 60
+    SPEED = 45
+    EXTREME_SPEED = 8
+
+
 class StepsUOV(IntEnum):
     QUALITY = 60
     SPEED = 45
