@@ -12,7 +12,7 @@
     "default_sample_sharpness": 2.0,
     "default_sampler": "dpmpp_2m_sde_gpu",
     "default_scheduler": "karras",
-    "default_performance": "Quality",
+    "default_performance": "Speed",
     "default_prompt": "",
     "default_prompt_negative": "",
     "default_styles": [
@@ -22,6 +22,6 @@
     ],
     "default_aspect_ratio": "1024*1024",
     "checkpoint_downloads": {
-      "AuraFlow.safetensors": "path/to/your/AuraFlow.safetensors"
+      "AuraFlow.safetensors": "/Users/ikramali/projects/fashionCORE_v3/models/checkpoints/aura_flow_0.1.safetensors"
     }
   }
