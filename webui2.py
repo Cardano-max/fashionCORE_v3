@@ -1,3 +1,4 @@
+#webui2.py:
 import gradio as gr
 import random
 import time
@@ -118,7 +119,7 @@ def virtual_try_on(clothes_image, person_image):
         inpaint_mask = generate_mask(person_pil)
 
         # Resize images and mask
-        target_size = (1024, 1024)
+        target_size = modules.config.default_auraflow_resolution
         clothes_image = HWC3(clothes_image)
         person_image = HWC3(person_image)
         inpaint_mask = HWC3(inpaint_mask)[:, :, 0]
@@ -148,8 +149,6 @@ def virtual_try_on(clothes_image, person_image):
         for lora in modules.config.default_loras:
             loras.extend(lora)
 
-        seed = 666
-
         args = [
             True,
             "",
@@ -157,12 +156,12 @@ def virtual_try_on(clothes_image, person_image):
             False,
             modules.config.default_styles,
             Performance.QUALITY.value,
-            modules.config.default_aspect_ratio,
+            f"{target_size[0]}*{target_size[1]}",
             1,
             modules.config.default_output_format,
-            seed,
+            modules.config.default_auraflow_seed,
             modules.config.default_sample_sharpness,
-            modules.config.default_cfg_scale,
+            modules.config.default_auraflow_guidance_scale,
             modules.config.default_base_model_name,
             modules.config.default_refiner_model_name,
             modules.config.default_refiner_switch,

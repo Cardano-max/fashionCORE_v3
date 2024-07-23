@@ -234,8 +234,27 @@ def get_config_item_or_set_default(key, default_value, validator, disable_empty_
 
 default_base_model_name = default_model = get_config_item_or_set_default(
     key='default_model',
-    default_value='model.safetensors',
+    default_value='aura_flow_0.1.safetensors',
     validator=lambda x: isinstance(x, str)
+)
+
+# Add AuraFlow specific settings
+default_auraflow_resolution = get_config_item_or_set_default(
+    key='default_auraflow_resolution',
+    default_value=(1024, 1024),
+    validator=lambda x: isinstance(x, tuple) and len(x) == 2 and all(isinstance(i, int) for i in x)
+)
+
+default_auraflow_guidance_scale = get_config_item_or_set_default(
+    key='default_auraflow_guidance_scale',
+    default_value=3.5,
+    validator=lambda x: isinstance(x, (int, float))
+)
+
+default_auraflow_seed = get_config_item_or_set_default(
+    key='default_auraflow_seed',
+    default_value=666,
+    validator=lambda x: isinstance(x, int)
 )
 previous_default_models = get_config_item_or_set_default(
     key='previous_default_models',
@@ -280,7 +299,7 @@ default_loras = get_config_item_or_set_default(
 )
 default_cfg_scale = get_config_item_or_set_default(
     key='default_cfg_scale',
-    default_value=3.5,
+    default_value=7.0,
     validator=lambda x: isinstance(x, numbers.Number)
 )
 default_sample_sharpness = get_config_item_or_set_default(
