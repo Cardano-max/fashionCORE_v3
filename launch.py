@@ -1,6 +1,7 @@
 import os
 import sys
 import ssl
+import shutil
 
 print('[System ARGV] ' + str(sys.argv))
 
@@ -97,7 +98,7 @@ def download_models(default_model, previous_default_models, checkpoint_downloads
 
     if args.disable_preset_download:
         print('Skipped model download.')
-        return
+        return default_model, checkpoint_downloads
 
     if not args.always_download_new_model:
         if not os.path.exists(os.path.join(config.path_checkpoints, default_model)):
@@ -112,7 +113,15 @@ def download_models(default_model, previous_default_models, checkpoint_downloads
                     break
 
     for file_name, url in checkpoint_downloads.items():
-        load_file_from_url(url=url, model_dir=config.path_checkpoints, file_name=file_name)
+        if url.startswith('http'):
+            load_file_from_url(url=url, model_dir=config.path_checkpoints, file_name=file_name)
+        else:
+            # If it's not a URL, assume it's a local file
+            src_path = os.path.join(config.path_checkpoints, url)
+            dst_path = os.path.join(config.path_checkpoints, file_name)
+            if src_path != dst_path:
+                shutil.copy2(src_path, dst_path)
+                print(f"Copied local file: {src_path} to {dst_path}")
     for file_name, url in embeddings_downloads.items():
         load_file_from_url(url=url, model_dir=config.path_embeddings, file_name=file_name)
     for file_name, url in lora_downloads.items():

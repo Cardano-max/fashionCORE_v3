@@ -365,7 +365,9 @@ default_image_number = get_config_item_or_set_default(
 )
 checkpoint_downloads = get_config_item_or_set_default(
     key='checkpoint_downloads',
-    default_value={},
+    default_value={
+        "aura_flow_0.1.safetensors": "aura_flow_0.1.safetensors"
+    },
     validator=lambda x: isinstance(x, dict) and all(isinstance(k, str) and isinstance(v, str) for k, v in x.items())
 )
 lora_downloads = get_config_item_or_set_default(
