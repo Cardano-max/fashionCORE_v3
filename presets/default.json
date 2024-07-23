@@ -1,14 +1,30 @@
 {
-    "default_model": "AuraFlow.safetensors",
+    "default_model": "FluentlyXL-v4.safetensors",
     "default_refiner": "None",
+    "default_refiner_switch": 0.5,
     "default_loras": [
-      ["None", 1.0],
-      ["None", 1.0],
-      ["None", 1.0],
-      ["None", 1.0],
-      ["None", 1.0]
+        [
+            "sd_xl_offset_example-lora_1.0.safetensors",
+            0.1
+        ],
+        [
+            "None",
+            1.0
+        ],
+        [
+            "None",
+            1.0
+        ],
+        [
+            "None",
+            1.0
+        ],
+        [
+            "None",
+            1.0
+        ]
     ],
-    "default_cfg_scale": 3.5,
+    "default_cfg_scale": 4.0,
     "default_sample_sharpness": 2.0,
     "default_sampler": "dpmpp_2m_sde_gpu",
     "default_scheduler": "karras",
@@ -16,12 +32,22 @@
     "default_prompt": "",
     "default_prompt_negative": "",
     "default_styles": [
-      "Fooocus V2",
-      "Fooocus Enhance",
-      "Fooocus Sharp"
+        "Fooocus V2",
+        "Fooocus Enhance",
+        "Fooocus Sharp"
     ],
-    "default_aspect_ratio": "1024*1024",
+    "default_aspect_ratio": "1152*896",
+    "default_overwrite_step": -1,
     "checkpoint_downloads": {
-      "AuraFlow.safetensors": "/Users/ikramali/projects/fashionCORE_v3/models/checkpoints/aura_flow_0.1.safetensors"
-    }
-  }
+        "FluentlyXL-v4.safetensors": "https://huggingface.co/fluently/Fluently-XL-v4/resolve/main/FluentlyXL-v4.safetensors"
+    },
+    "embeddings_downloads": {},
+    "lora_downloads": {
+        "sd_xl_offset_example-lora_1.0.safetensors": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_offset_example-lora_1.0.safetensors"
+    },
+    "previous_default_models": [
+        "FluentlyXL-v3.safetensors",
+        "FluentlyXL-v2.safetensors",
+        "FluentlyXL-v1.safetensors"
+    ]
+}
