@@ -82,43 +82,22 @@ def send_feedback_email(rating, comment):
 
 def virtual_try_on(clothes_image, person_image, category_input):
     try:
-        # Convert person_image to PIL Image if it's not already
-        if not isinstance(person_image, Image.Image):
-            person_pil = Image.fromarray(person_image)
-        else:
-            person_pil = person_image
-
-        categories = {
-            "Upper Body": "upper_body",
-            "Lower Body": "lower_body",
-            "Full Body": "dresses"
-        }
-        print(f"Category Input: {category_input}")
-        
-        # Safely get the category, defaulting to "upper_body" if not found
-        category = categories.get(category_input, "upper_body")
-        print(f"Using category: {category}")
-        
+        # Convert person_image to PIL Image
+        person_pil = Image.fromarray(person_image)
+        categories = {"Upper Body": "upper_body", "Lower Body": "lower_body", "Full Body": "dresses"}
+        print("Category Input",category_input)
         # Generate mask
-        inpaint_mask = masker.get_mask(person_pil, category=category)
+        inpaint_mask = masker.get_mask(person_pil, category=categories[category_input])
 
-        # Get the original dimensions
-        orig_clothes_h, orig_clothes_w = clothes_image.shape[:2]
-        orig_person_h, orig_person_w = person_image.shape[:2]
+        # Resize images and mask
+        target_size = (1152, 896)
+        clothes_image = HWC3(clothes_image)
+        person_image = HWC3(person_image)
+        inpaint_mask = HWC3(inpaint_mask)[:, :, 0]
 
-        # Define a maximum dimension (you can adjust this)
-        max_dim = 1024
-
-        # Resize images while preserving aspect ratio
-        clothes_image = resize_image(HWC3(clothes_image), max_dim, max_dim)
-        person_image = resize_image(HWC3(person_image), max_dim, max_dim)
-        inpaint_mask = resize_image(HWC3(inpaint_mask), max_dim, max_dim)
-
-        # Get the new dimensions
-        person_h, person_w = person_image.shape[:2]
-
-        # Set the aspect ratio based on the resized person image
-        aspect_ratio = f"{person_w}×{person_h}"
+        clothes_image = resize_image(clothes_image, target_size[0], target_size[1])
+        person_image = resize_image(person_image, target_size[0], target_size[1])
+        inpaint_mask = resize_image(inpaint_mask, target_size[0], target_size[1])
 
         # Display and save the mask
         plt.figure(figsize=(10, 10))
@@ -137,7 +116,6 @@ def virtual_try_on(clothes_image, person_image, category_input):
 
         os.environ['MASKED_IMAGE_PATH'] = masked_image_path
 
-        # Define loras here
         loras = []
         for lora in modules.config.default_loras:
             loras.extend(lora)
@@ -149,7 +127,7 @@ def virtual_try_on(clothes_image, person_image, category_input):
             False,
             modules.config.default_styles,
             Performance.QUALITY.value,
-            aspect_ratio,
+            modules.config.default_aspect_ratio,
             1,
             modules.config.default_output_format,
             random.randint(constants.MIN_SEED, constants.MAX_SEED),
@@ -228,11 +206,10 @@ def virtual_try_on(clothes_image, person_image, category_input):
             return {"success": False, "error": "No results generated"}
 
     except Exception as e:
-        print(f"Error in virtual_try_on: {str(e)}")
+        print("Error in virtual_try_on:", str(e))
         traceback.print_exc()
         return {"success": False, "error": str(e)}
 
-        
 example_garments = [
     "images/b1.png",
     "images/b2.jpeg",
@@ -647,40 +624,95 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
             }
             return
 
-        try:
-            result = virtual_try_on(clothes_image, person_image, category_input)
+        if current_task_event.is_set():
+            yield {
+                loading_indicator: gr.update(visible=True, value=f"<div class='loading'></div><p>{random.choice(loading_messages)}</p>"),
+                status_info: gr.update(value="<p>Your request has been queued. We'll process it as soon as possible.</p>", visible=True),
+                masked_output: gr.update(visible=False),
+                try_on_output: gr.update(visible=False),
+                error_output: gr.update(visible=False),
+                image_link: gr.update(visible=False),
+                queue_note: gr.update(visible=True)
+            }
+
+        def result_callback(result):
+            nonlocal generation_done, generation_result
+            generation_done = True
+            generation_result = result
+
+        with queue_lock:
+            current_position = task_queue.qsize()
+            task_queue.put((clothes_image, person_image, category_input, result_callback))
+
+        generation_done = False
+        generation_result = None
+
+        while not generation_done:
+            if current_task_event.is_set() and current_position == 0:
+                yield {
+                    loading_indicator: gr.update(visible=True, value=f"<div class='loading'></div><p>{random.choice(loading_messages)}</p>"),
+                    status_info: gr.update(value="<p>Processing your request. This may take a few minutes.</p>", visible=True),
+                    masked_output: gr.update(visible=False),
+                    try_on_output: gr.update(visible=False),
+                    error_output: gr.update(visible=False),
+                    image_link: gr.update(visible=False),
+                    queue_note: gr.update(visible=True)
+                }
+            elif current_position > 0:
+                yield {
+                    loading_indicator: gr.update(visible=True, value=f"<div class='loading'></div><p>{random.choice(loading_messages)}</p>"),
+                    status_info: gr.update(value=f"<p>Your request is in queue. Current position: {current_position}</p><p>Estimated wait time: {current_position * 2} minutes</p>", visible=True),
+                    masked_output: gr.update(visible=False),
+                    try_on_output: gr.update(visible=False),
+                    error_output: gr.update(visible=False),
+                    image_link: gr.update(visible=False),
+                    queue_note: gr.update(visible=True)
+                }
+            else:
+                yield {
+                    loading_indicator: gr.update(visible=True, value=f"<div class='loading'></div><p>{random.choice(loading_messages)}</p>"),
+                    status_info: gr.update(value="<p>Your request is next in line. Processing will begin shortly.</p>", visible=True),
+                    masked_output: gr.update(visible=False),
+                    try_on_output: gr.update(visible=False),
+                    error_output: gr.update(visible=False),
+                    image_link: gr.update(visible=False),
+                    queue_note: gr.update(visible=True)
+                }
             
-            if result['success']:
-                generated_image_path = result['image_path']
-                masked_image_path = result['masked_image_path']
-                gradio_url = os.environ.get('GRADIO_PUBLIC_URL', '')
+            queue_update_event.wait(timeout=5)
+            queue_update_event.clear()
+            current_position = max(0, task_queue.qsize() - 1)
 
-                if gradio_url and generated_image_path and masked_image_path:
-                    output_image_link = f"{gradio_url}/file={generated_image_path}"
-                    masked_image_link = f"{gradio_url}/file={masked_image_path}"
-                    link_html = f'<a href="{output_image_link}" target="_blank">View Try-On Result</a> | <a href="{masked_image_link}" target="_blank">View Mask Visualization</a>'
+        if generation_result is None:
+            yield {
+                loading_indicator: gr.update(visible=False),
+                status_info: gr.update(visible=False),
+                masked_output: gr.update(visible=False),
+                try_on_output: gr.update(visible=False),
+                image_link: gr.update(visible=False),
+                error_output: gr.update(value=f"<p>{random.choice(error_messages)}</p><p>Remember, we're still in beta. We appreciate your understanding as we work to improve our service.</p>", visible=True),
+                queue_note: gr.update(visible=True)
+            }
+        elif generation_result['success']:
+            generated_image_path = os.environ['GENERATED_IMAGE_PATH']
+            masked_image_path = os.environ['MASKED_IMAGE_PATH']
+            gradio_url = os.environ['GRADIO_PUBLIC_URL']
 
-                    yield {
-                        loading_indicator: gr.update(visible=False),
-                        status_info: gr.update(value="<p>Your virtual try-on is complete! Check out the results below.</p>", visible=True),
-                        masked_output: gr.update(value=masked_image_path, visible=True),
-                        try_on_output: gr.update(value=generated_image_path, visible=True),
-                        image_link: gr.update(value=link_html, visible=True),
-                        error_output: gr.update(visible=False),
-                        queue_note: gr.update(visible=False),
-                        feedback_row: gr.update(visible=True)
-                    }
-                else:
-                    yield {
-                        loading_indicator: gr.update(visible=False),
-                        status_info: gr.update(visible=False),
-                        masked_output: gr.update(visible=False),
-                        try_on_output: gr.update(visible=False),
-                        image_link: gr.update(visible=False),
-                        error_output: gr.update(value="<p>We encountered an issue while generating your try-on results. Our team has been notified and is working on a solution. Please try again later.</p>", visible=True),
-                        queue_note: gr.update(visible=True),
-                        feedback_row: gr.update(visible=False)
-                    }
+            if gradio_url and generated_image_path and masked_image_path:
+                output_image_link = f"{gradio_url}/file={generated_image_path}"
+                masked_image_link = f"{gradio_url}/file={masked_image_path}"
+                link_html = f'<a href="{output_image_link}" target="_blank">View Try-On Result</a> | <a href="{masked_image_link}" target="_blank">View Mask Visualization</a>'
+
+                yield {
+                    loading_indicator: gr.update(visible=False),
+                    status_info: gr.update(value="<p>Your virtual try-on is complete! Check out the results below.</p>", visible=True),
+                    masked_output: gr.update(value=masked_image_path, visible=True),
+                    try_on_output: gr.update(value=generated_image_path, visible=True),
+                    image_link: gr.update(value=link_html, visible=True),
+                    error_output: gr.update(visible=False),
+                    queue_note: gr.update(visible=False),
+                    feedback_row: gr.update(visible=True)
+                }
             else:
                 yield {
                     loading_indicator: gr.update(visible=False),
@@ -688,20 +720,18 @@ with gr.Blocks(css=css, theme=gr.themes.Base()) as demo:
                     masked_output: gr.update(visible=False),
                     try_on_output: gr.update(visible=False),
                     image_link: gr.update(visible=False),
-                    error_output: gr.update(value=f"<p>An error occurred: {result['error']}</p><p>Our team has been notified and is working on a solution. We appreciate your patience as we improve our beta service.</p>", visible=True),
+                    error_output: gr.update(value="<p>We encountered an issue while generating your try-on results. Our team has been notified and is working on a solution. Please try again later.</p>", visible=True),
                     queue_note: gr.update(visible=True),
                     feedback_row: gr.update(visible=False)
                 }
-        except Exception as e:
-            print(f"Error in process_virtual_try_on: {str(e)}")
-            traceback.print_exc()
+        else:
             yield {
                 loading_indicator: gr.update(visible=False),
                 status_info: gr.update(visible=False),
                 masked_output: gr.update(visible=False),
                 try_on_output: gr.update(visible=False),
                 image_link: gr.update(visible=False),
-                error_output: gr.update(value=f"<p>An unexpected error occurred: {str(e)}</p><p>Our team has been notified and is working on a solution. We appreciate your patience as we improve our beta service.</p>", visible=True),
+                error_output: gr.update(value=f"<p>An error occurred: {generation_result['error']}</p><p>Our team has been notified and is working on a solution. We appreciate your patience as we improve our beta service.</p>", visible=True),
                 queue_note: gr.update(visible=True),
                 feedback_row: gr.update(visible=False)
             }
